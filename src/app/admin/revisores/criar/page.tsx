@@ -35,6 +35,11 @@ function Signup() {
       setError(signUpError.message);
     } else {
       alert('Cadastro realizado com sucesso! Verifique seu e-mail.');
+
+      // Limpa os campos após o sucesso
+      setEmail('');
+      setPassword('');
+      setName('');
     }
 
     setLoading(false);
