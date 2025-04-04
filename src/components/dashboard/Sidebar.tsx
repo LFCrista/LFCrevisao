@@ -30,7 +30,7 @@ const Sidebar = () => {
     <div className="w-48 bg-gray-800 text-white p-6 h-screen">
       {/* Título da Sidebar */}
       <div className="flex items-center text-xl font-bold mb-8">
-        <span>Revise.Me</span>
+        <span>Dev</span>
         <svg
           xmlns="http://www.w3.org/2000/svg"
           viewBox="0 0 24 24"
