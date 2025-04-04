@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
 
@@ -20,6 +20,21 @@ export default function Login() {
 
   // Inicializando o cliente do Supabase
   const supabase = createClient(supabaseUrl, supabaseKey)
+
+  // Verificação de login ao carregar o componente
+  useEffect(() => {
+    const token = localStorage.getItem('token')
+    const admin = JSON.parse(localStorage.getItem('admin') || 'false')
+
+    if (token) {
+      // Redireciona baseado no tipo de usuário
+      if (admin) {
+        router.push('/admin')  // Se for admin
+      } else {
+        router.push('/feed')   // Se não for admin
+      }
+    }
+  }, [router])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -68,10 +83,6 @@ export default function Login() {
         localStorage.setItem('email', user.email)  // Salvar o email do usuário
         localStorage.setItem('admin', JSON.stringify(user.admin))  // Salvar o valor de admin (true/false)
         localStorage.setItem('token', data.session?.access_token || '')  // Salvar o token de sessão
-
-        // Exemplo de como você pode usar o userAtv_id
-        // Aqui você pode salvar userAtv_id em algum lugar ou usar conforme necessário
-        // Exemplo: localStorage.setItem('userAtv_id', userAtv_id);
 
         // Redirecionamento baseado no tipo de usuário
         if (user.admin) {
