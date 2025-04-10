@@ -1,29 +1,29 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useRef } from 'react'
 import { supabase } from '../../../lib/supabase'
 import { useParams } from 'next/navigation'
+import JSZip from 'jszip'
+import { saveAs } from 'file-saver'
 
 const AtividadePage = () => {
   const [atividade, setAtividade] = useState<any>(null)
-  const [feitoUrl, setFeitoUrl] = useState<string | null>(null)
-  const [feitoArquivo, setFeitoArquivo] = useState<File | null>(null)
+  const [feitoArquivos, setFeitoArquivos] = useState<File[]>([])
   const [user, setUser] = useState<any>(null)
-  const [arquivoNome, setArquivoNome] = useState<string | null>(null)  // Nome do arquivo "feito"
-  const [editando, setEditando] = useState(false)
-  const [tempoExpirado, setTempoExpirado] = useState(false) // Para verificar se o tempo de entrega expirou
+  const [nomeUsuario, setNomeUsuario] = useState<string>('')
+  const [statusAtividade, setStatusAtividade] = useState<string>('') 
+  const [feitoUrls, setFeitoUrls] = useState<string[]>([])
+  const [arquivosNaPasta, setArquivosNaPasta] = useState<any[]>([])
+  const [fileError, setFileError] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const params = useParams()
 
   useEffect(() => {
     const getUser = async () => {
       const { data: { session }, error } = await supabase.auth.getSession()
-      if (error) {
-        console.error('Erro ao obter sessão:', error.message)
-      } else {
-        setUser(session?.user || null)
-      }
+      if (error) console.error('Erro ao obter sessão:', error.message)
+      else setUser(session?.user || null)
     }
-
     getUser()
   }, [])
 
@@ -44,49 +44,114 @@ const AtividadePage = () => {
 
       if (data) {
         setAtividade(data)
-
-        // Verifica se a data de término já passou
         const currentDate = new Date()
         const endDate = new Date(data.end_date)
-        if (endDate < currentDate) {
-          setTempoExpirado(true)
-        } else {
-          setTempoExpirado(false)
-        }
+        if (currentDate > endDate && data.concluida) setStatusAtividade('Finalizada')
+        else if (data.concluida) setStatusAtividade('Concluída')
+        else if (currentDate > endDate) setStatusAtividade('Atrasada')
+        else setStatusAtividade('Pendente')
 
         if (data.feito_url) {
-          setFeitoUrl(data.feito_url)
-          // Nome do arquivo "feito"
-          setArquivoNome(data.feito_url.split('/').pop() || '')
+          const folderPath = data.feito_url
+          setFeitoUrls([folderPath])
+          fetchArquivosNaPasta(folderPath)
         }
-        if (data.arquivo_url && !data.feito_url) {
-          // Nome do arquivo da atividade apenas se não houver arquivo feito
-          setArquivoNome(data.arquivo_url.split('/').pop() || '')
-        }
+
+        fetchNomeUsuario(data.user_id)
       }
     }
 
     fetchAtividadeData()
   }, [params.id, user])
 
-  const handleDownload = async (url: string | null, bucket: string) => {
-    if (!url) {
-      console.error('Erro: Nenhuma URL fornecida para o download.')
+  const fetchNomeUsuario = async (userId: string) => {
+    const { data, error } = await supabase
+      .from('users')
+      .select('name')
+      .eq('id', userId)
+      .single()
+
+    if (error) {
+      console.error('Erro ao buscar nome do usuário:', error.message)
+    } else {
+      setNomeUsuario(data?.name || '')
+    }
+  }
+
+  const handleDownloadArquivosEnviados = async () => {
+    if (!atividade?.arquivo_url) {
+      console.error('A URL dos arquivos enviados está ausente.')
       return
     }
-
-    if (!bucket) {
-      console.error('Erro: Nenhum bucket fornecido para o download.')
-      return
-    }
-
+  
+    const folderPath = atividade.arquivo_url
+    const zip = new JSZip()
+  
     try {
-      const { data: fileData, error } = await supabase.storage
-        .from(bucket) // Bucket correto
-        .download(url)
+      const { data: arquivos, error: listError } = await supabase.storage
+        .from('atividades-enviadas')
+        .list(folderPath)
+  
+      if (listError || !arquivos || arquivos.length === 0) {
+        console.error('Erro ao listar arquivos enviados:', listError?.message)
+        alert('Nenhum arquivo encontrado para baixar.')
+        return
+      }
+  
+      for (const file of arquivos) {
+        const filePath = `${folderPath}/${file.name}`
+        const { data: fileData, error } = await supabase.storage
+          .from('atividades-enviadas')
+          .download(filePath)
+  
+        if (error) {
+          console.error(`Erro ao baixar ${file.name}:`, error.message)
+          continue
+        }
+  
+        zip.file(file.name, fileData)
+      }
+  
+      const zipBlob = await zip.generateAsync({ type: 'blob' })
+      saveAs(zipBlob, `arquivos-enviados-${atividade.titulo}.zip`)
+    } catch (error: any) {
+      console.error('Erro ao baixar arquivos enviados:', error.message || error)
+      alert('Erro ao baixar arquivos enviados. Tente novamente.')
+    }
+  }
+  
+  
+
+  const fetchArquivosNaPasta = async (folderPath: string) => {
+    try {
+      const { data, error } = await supabase.storage
+        .from('atividades-recebidas')
+        .list(folderPath, { limit: 100 })
 
       if (error) {
-        console.error(`Erro ao fazer download do arquivo do bucket ${bucket}:`, error.message)
+        console.error('Erro ao listar arquivos:', error.message)
+        return
+      }
+
+      if (data?.length) setArquivosNaPasta(data)
+    } catch (error: any) {
+      console.error('Erro inesperado ao listar arquivos:', error.message || error)
+    }
+  }
+
+  const handleDownload = async (fileName: string) => {
+    if (!fileName) return
+
+    try {
+      const folderPath = feitoUrls[0]
+      const filePath = `${folderPath}/${fileName}`
+
+      const { data: fileData, error } = await supabase.storage
+        .from('atividades-recebidas')
+        .download(filePath)
+
+      if (error) {
+        console.error('Erro ao fazer download do arquivo:', error.message)
         return
       }
 
@@ -94,7 +159,7 @@ const AtividadePage = () => {
       const fileUrl = URL.createObjectURL(fileBlob)
       const link = document.createElement('a')
       link.href = fileUrl
-      link.download = url.split('/').pop() || 'arquivo'
+      link.download = fileName
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
@@ -103,108 +168,123 @@ const AtividadePage = () => {
     }
   }
 
+  const handleRemove = async (fileName: string) => {
+    if (!fileName) return
+
+    const confirmRemove = window.confirm('Você tem certeza que deseja remover este arquivo?')
+    if (!confirmRemove) return
+
+    try {
+      const folderPath = feitoUrls[0]
+      const filePath = `${folderPath}/${fileName}`
+
+      const { error } = await supabase.storage
+        .from('atividades-recebidas')
+        .remove([filePath])
+
+      if (error) {
+        console.error('Erro ao remover o arquivo:', error.message)
+        return
+      }
+
+      setArquivosNaPasta(arquivosNaPasta.filter(file => file.name !== fileName))
+      alert('Arquivo removido com sucesso!')
+
+      // Atualizar a lista de arquivos na pasta
+      fetchArquivosNaPasta(folderPath)
+
+    } catch (error: any) {
+      console.error('Erro inesperado ao remover o arquivo:', error.message || error)
+    }
+  }
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      setFeitoArquivo(file)
-      setArquivoNome(file.name)  // Atualiza o nome do arquivo "feito"
+    const files = e.target.files
+    if (files) {
+      const newFiles = Array.from(files)
+      const duplicates = newFiles.filter(newFile =>
+        feitoArquivos.some(existing => existing.name === newFile.name)
+      )
+
+      if (duplicates.length > 0) {
+        setFileError(`O arquivo "${duplicates[0].name}" já foi adicionado.`)
+        setTimeout(() => setFileError(null), 4000)
+        if (fileInputRef.current) fileInputRef.current.value = ''
+        return
+      }
+
+      setFeitoArquivos(prev => [...prev, ...newFiles])
+      if (fileInputRef.current) fileInputRef.current.value = ''
     }
   }
 
-  const handleUploadFeito = async () => {
-    if (!feitoArquivo) {
-      alert('Por favor, selecione um arquivo para enviar.')
+  const handleSubmit = async () => {
+    if (feitoArquivos.length === 0) {
+      console.error('Por favor, selecione pelo menos um arquivo para enviar.')
       return
     }
 
-    const sanitizedMonth = new Date()
-      .toLocaleString('default', { month: 'long' })
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .toLowerCase()
-    const sanitizedDay = new Date().getDate().toString().padStart(2, '0')
+    try {
+      const currentDate = new Date()
+      const year = currentDate.getFullYear()
+      const month = (currentDate.getMonth() + 1).toString().padStart(2, '0')
+      const day = currentDate.getDate().toString().padStart(2, '0')
 
-    const filePath = `${user?.id}/${new Date().getFullYear()}/${sanitizedMonth}/${sanitizedDay}/${feitoArquivo.name}`
+      const folderPath = `${nomeUsuario}/${year}/${month}/${day}/${atividade?.titulo}`
 
-    const { data, error } = await supabase.storage
-      .from('atividades-recebidas')
-      .upload(filePath, feitoArquivo, {
-        cacheControl: '3600',
-        upsert: true,
-      })
+      for (const file of feitoArquivos) {
+        const fileName = file.name  // Mantém o nome original do arquivo
 
-    if (error) {
-      console.error('Erro ao fazer upload do arquivo feito:', error.message)
-      return
-    }
+        // Verificar se o arquivo já existe no banco
+        const existingFile = arquivosNaPasta.find(f => f.name === fileName)
 
-    setArquivoNome(data?.path.split('/').pop() || '')  // Atualiza o nome do arquivo feito
+        if (existingFile) {
+          const userConfirmed = window.confirm(`O arquivo "${fileName}" já existe. Deseja atualizar o arquivo?`)
+          if (userConfirmed) {
+            // Remover o arquivo existente
+            const filePath = `${folderPath}/${fileName}`
+            const { error: removeError } = await supabase.storage
+              .from('atividades-recebidas')
+              .remove([filePath])
 
-    const { error: updateError } = await supabase
-      .from('atividades')
-      .update({
-        feito_url: data?.path,
-        concluida: true, // Marcando como concluída
-      })
-      .eq('id', params.id)
+            if (removeError) {
+              console.error('Erro ao remover o arquivo existente:', removeError.message)
+              return
+            }
+          } else {
+            // Se o usuário não quiser atualizar, ignore o upload deste arquivo
+            continue
+          }
+        }
 
-    if (updateError) {
-      console.error('Erro ao atualizar a atividade:', updateError.message)
-    } else {
-      console.log('Atividade atualizada com o novo arquivo feito.')
-      window.location.reload()  // Recarrega a página após o upload
-    }
-  }
+        // Realizar o upload do novo arquivo
+        const { error: uploadError } = await supabase.storage
+          .from('atividades-recebidas')
+          .upload(`${folderPath}/${fileName}`, file)
 
-  const handleEditFile = () => {
-    setEditando(true)
-  }
+        if (uploadError) {
+          console.error('Erro ao fazer upload do arquivo:', uploadError.message)
+          return
+        }
+      }
 
-  const handleReplaceFile = async () => {
-    if (!feitoArquivo) {
-      alert('Por favor, selecione um arquivo para substituir.')
-      return
-    }
+      const { error: updateError } = await supabase
+        .from('atividades')
+        .update({ feito_url: folderPath, concluida: true })
+        .eq('id', params.id)
 
-    const { error: deleteError } = await supabase.storage
-      .from('atividades-recebidas')
-      .remove([atividade?.feito_url])
-
-    if (deleteError) {
-      console.error('Erro ao excluir o arquivo anterior:', deleteError.message)
-      return
-    }
-
-    const sanitizedMonth = new Date()
-      .toLocaleString('default', { month: 'long' })
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .toLowerCase()
-    const sanitizedDay = new Date().getDate().toString().padStart(2, '0')
-
-    const filePath = `${user?.id}/${new Date().getFullYear()}/${sanitizedMonth}/${sanitizedDay}/${feitoArquivo.name}`
-
-    const { data, error } = await supabase.storage
-      .from('atividades-recebidas')
-      .upload(filePath, feitoArquivo, { cacheControl: '3600', upsert: true })
-
-    if (error) {
-      console.error('Erro ao fazer upload do novo arquivo:', error.message)
-      return
-    }
-
-    const { error: updateError } = await supabase
-      .from('atividades')
-      .update({ feito_url: data?.path })
-      .eq('id', params.id)
-
-    if (updateError) {
-      console.error('Erro ao atualizar a atividade:', updateError.message)
-    } else {
-      console.log('Arquivo substituído com sucesso.')
-      setEditando(false)
-      setArquivoNome(data?.path.split('/').pop() || '')  // Atualiza o nome do arquivo feito
-      window.location.reload()  // Recarrega a página após a substituição
+      if (updateError) {
+        console.error('Erro ao atualizar a atividade:', updateError.message)
+      } else {
+        alert('Atividade enviada com sucesso!')
+        setFeitoUrls([folderPath])
+        setFeitoArquivos([])  // Limpar os arquivos selecionados
+        setStatusAtividade('Concluída')
+        if (fileInputRef.current) fileInputRef.current.value = ''
+        fetchArquivosNaPasta(folderPath)  // Atualizar os arquivos da pasta
+      }
+    } catch (error: any) {
+      console.error('Erro inesperado ao enviar a atividade:', error.message || error)
     }
   }
 
@@ -216,104 +296,99 @@ const AtividadePage = () => {
         {atividade ? (
           <div className="space-y-6">
             <h3 className="text-2xl font-bold text-gray-800">{atividade.titulo}</h3>
-            <p className="text-gray-600">
-              <strong>Descrição:</strong> {atividade.descricao}
+            <p className="text-gray-600 whitespace-pre-wrap">
+              <strong>Descrição:</strong> <br />{atividade.descricao}
             </p>
             <p className="text-gray-600">
-              <strong>Data de Início:</strong> {atividade.start_date ? new Date(atividade.start_date).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', dateStyle: 'short', timeStyle: 'short' }) : 'N/A'}
+              <strong>Data de Início:</strong> {atividade.start_date ? new Date(atividade.start_date).toLocaleString('pt-BR') : 'N/A'}
             </p>
             <p className="text-gray-600">
-              <strong>Data de Término:</strong> {atividade.end_date ? new Date(atividade.end_date).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', dateStyle: 'short', timeStyle: 'short' }) : 'N/A'}
+              <strong>Data de Término:</strong> {atividade.end_date ? new Date(atividade.end_date).toLocaleString('pt-BR') : 'N/A'}
             </p>
-            {tempoExpirado && (
-              <p className="text-red-500 font-semibold">O tempo para a entrega foi esgotado!</p>
-            )}
             <p className="text-gray-600">
-              <strong>Status:</strong> {tempoExpirado ? 'Atrasado' : (atividade.concluida ? 'Concluída' : 'Pendente')}
+              <strong>Status:</strong> {statusAtividade}
             </p>
           </div>
         ) : (
-          <p className="text-gray-600">Carregando dados da atividade...</p>
+          <div>Carregando...</div>
         )}
 
-        <div className="mt-6 flex flex-col items-start space-y-4">
-          {/* Botão para Baixar a Atividade */}
-          {atividade?.arquivo_url && (
-            <button
-              onClick={() => handleDownload(atividade.arquivo_url, 'atividades-enviadas')}
-              className="py-2 px-6 bg-blue-500 text-white rounded-md hover:bg-blue-600 focus:outline-none"
-            >
-              Baixar Atividade
-            </button>
-          )}
+{atividade?.arquivo_url && (
+  <div className="mt-6 text-center">
+    <button
+      onClick={handleDownloadArquivosEnviados}
+      className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
+    >
+      📁 Baixar Arquivos Enviados (.zip)
+    </button>
+  </div>
+)}
 
-          {/* Botão para Baixar o Arquivo Feito */}
-          {feitoUrl && (
-            <button
-              onClick={() => handleDownload(feitoUrl, 'atividades-recebidas')}
-              className="py-2 px-6 bg-green-500 text-white rounded-md hover:bg-green-600 focus:outline-none"
-            >
-              Baixar Arquivo Feito
-            </button>
-          )}
-        </div>
 
-        {/* Condicional de Exibição dependendo do Status da Atividade */}
-        {atividade && atividade.concluida ? (
+        {feitoArquivos.length > 0 && (
           <div className="mt-6 text-center">
-            {arquivoNome && (
-              <div className="mb-4">
-                <span className="font-semibold text-gray-700">{arquivoNome}</span> {/* Exibe nome do arquivo feito */}
-              </div>
-            )}
-
-            {editando ? (
-              <>
-                <input
-                  type="file"
-                  onChange={handleFileChange}
-                  className="hidden"
-                  id="fileInput"
-                />
-                <label
-                  htmlFor="fileInput"
-                  className="cursor-pointer py-2 px-6 bg-yellow-500 text-white rounded-md hover:bg-yellow-600"
-                >
-                  Escolher Novo Arquivo
-                </label>
-
-                {feitoArquivo && (
+            <div className="mb-4 space-y-2">
+              {feitoArquivos.map((file) => (
+                <div key={file.name} className="flex items-center justify-between bg-gray-100 rounded-lg p-2">
+                  <span className="text-gray-700">{file.name}</span>
                   <button
-                    onClick={handleReplaceFile}
-                    className="mt-4 py-2 px-6 bg-yellow-500 text-white rounded-md hover:bg-yellow-600 focus:outline-none"
+                    onClick={() => {
+                      setFeitoArquivos((prev) => prev.filter((f) => f.name !== file.name))
+                      if (fileInputRef.current) fileInputRef.current.value = ''
+                    }}
+                    className="text-red-500 hover:text-red-700"
                   >
-                    Substituir Arquivo
+                    Remover
                   </button>
-                )}
-              </>
-            ) : (
-              <button
-                onClick={handleEditFile}
-                className="mt-4 py-2 px-6 bg-yellow-500 text-white rounded-md hover:bg-yellow-600 focus:outline-none"
-              >
-                Editar Arquivo Feito
-              </button>
-            )}
+                </div>
+              ))}
+            </div>
           </div>
-        ) : (
+        )}
+
+    {statusAtividade !== 'Atrasada' && statusAtividade !== 'Finalizada' && (
+        <div className="mt-6">
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            onChange={handleFileChange}
+            className="border p-2 rounded-lg"
+          />
+          {fileError && (
+            <p className="text-red-600 mt-2">{fileError}</p>
+          )}
+          <button
+            onClick={handleSubmit}
+            className="mt-4 px-6 py-2 bg-blue-500 text-white rounded-lg"
+          >
+            Enviar Atividade
+          </button>
+        </div>
+         )}
+        {feitoUrls.length > 0 && (
           <div className="mt-6 text-center">
-            <input
-              type="file"
-              onChange={handleFileChange}
-              className="mb-4"
-            />
-            <button
-              onClick={handleUploadFeito}
-              disabled={tempoExpirado} // Desabilita o envio se o tempo expirou
-              className={`py-2 px-6 ${tempoExpirado ? 'bg-gray-400' : 'bg-blue-500'} text-white rounded-md hover:bg-blue-600 focus:outline-none`}
-            >
-              Enviar Arquivo
-            </button>
+            <div className="mb-4 space-y-2">
+              {arquivosNaPasta.map((file) => (
+                <div key={file.name} className="flex items-center justify-between bg-gray-100 rounded-lg p-2">
+                  <span className="text-gray-700">{file.name}</span>
+                  <div>
+                    <button
+                      onClick={() => handleDownload(file.name)}
+                      className="text-blue-500 hover:text-blue-700 mr-4"
+                    >
+                      Baixar
+                    </button>
+                    <button
+                      onClick={() => handleRemove(file.name)}
+                      className="text-red-500 hover:text-red-700"
+                    >
+                      Remover
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </div>

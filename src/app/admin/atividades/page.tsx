@@ -6,6 +6,9 @@ import Sidebar from '@/components/dashboard/Sidebar'; // Importando a Sidebar
 import Link from 'next/link'; // Importando o Link do Next.js para navegação
 import { useRouter } from 'next/navigation'; // Importando o useRouter correto para o app directory
 import { withAuth } from '../../../lib/auth'
+import JSZip from 'jszip';
+import { saveAs } from 'file-saver';
+
 
 const AtividadesAdmin = () => {
   const [atividades, setAtividades] = useState<any[]>([]); // Estado para armazenar as atividades
@@ -28,6 +31,45 @@ const AtividadesAdmin = () => {
     const seconds = String(date.getSeconds()).padStart(2, '0');
     return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
   };
+
+  // const handleDownloadFolderAsZip = async (feitoUrl: string, zipFileName: string) => {
+  //   try {
+  //     const cleanPath = feitoUrl.replace(/\/$/, ''); // remove barra final se houver
+  //     const { data: listData, error: listError } = await supabase.storage
+  //       .from('atividades-recebidas')
+  //       .list(cleanPath, { limit: 1000 });
+  
+  //     if (listError) throw listError;
+  
+  //     if (!listData || listData.length === 0) {
+  //       alert('Nenhum arquivo encontrado na atividade.');
+  //       return;
+  //     }
+  
+  //     const zip = new JSZip();
+  
+  //     for (const file of listData) {
+  //       const fullPath = `${cleanPath}/${file.name}`;
+  //       const { data: fileData, error: fileError } = await supabase.storage
+  //         .from('atividades-recebidas')
+  //         .download(fullPath);
+  
+  //       if (fileError || !fileData) {
+  //         console.error(`Erro ao baixar o arquivo ${file.name}`, fileError);
+  //         continue;
+  //       }
+  
+  //       zip.file(file.name, fileData);
+  //     }
+  
+  //     const zipBlob = await zip.generateAsync({ type: 'blob' });
+  //     saveAs(zipBlob, zipFileName);
+  //   } catch (error: any) {
+  //     console.error('Erro ao baixar arquivos como ZIP:', error.message || error);
+  //     alert('Erro ao baixar arquivos. Tente novamente.');
+  //   }
+  // };
+  
   
   const calculateStatus = (concluida: boolean, endDate: string) => {
     const currentDate = new Date();
@@ -148,30 +190,30 @@ const AtividadesAdmin = () => {
 
   
 
-  const handleDownload = async (url: string | null, bucket: string) => {
-    if (!url || !bucket) return;
+  // const handleDownload = async (url: string | null, bucket: string) => {
+  //   if (!url || !bucket) return;
 
-    try {
-      const { data: fileData, error } = await supabase.storage
-        .from(bucket)
-        .download(url);
+  //   try {
+  //     const { data: fileData, error } = await supabase.storage
+  //       .from(bucket)
+  //       .download(url);
 
-      if (error) throw error;
+  //     if (error) throw error;
 
-      const fileBlob = new Blob([fileData], { type: 'application/octet-stream' });
-      const fileUrl = URL.createObjectURL(fileBlob);
-      const link = document.createElement('a');
-      link.href = fileUrl;
-      const fileName = url.split('/').pop() || 'arquivo_desconhecido';
-      link.download = fileName;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    } catch (error: any) {
-      console.error('Erro ao fazer o download:', error.message || error);
-      alert('Erro inesperado ao fazer o download. Tente novamente.');
-    }
-  };
+  //     const fileBlob = new Blob([fileData], { type: 'application/octet-stream' });
+  //     const fileUrl = URL.createObjectURL(fileBlob);
+  //     const link = document.createElement('a');
+  //     link.href = fileUrl;
+  //     const fileName = url.split('/').pop() || 'arquivo_desconhecido';
+  //     link.download = fileName;
+  //     document.body.appendChild(link);
+  //     link.click();
+  //     document.body.removeChild(link);
+  //   } catch (error: any) {
+  //     console.error('Erro ao fazer o download:', error.message || error);
+  //     alert('Erro inesperado ao fazer o download. Tente novamente.');
+  //   }
+  // };
 
   const handleDelete = async (id: number) => {
     const confirmation = confirm('Tem certeza que deseja excluir esta atividade?');
@@ -343,16 +385,18 @@ const AtividadesAdmin = () => {
                   <td className="px-6 py-3 cursor-pointer"  onClick={() => handleRowClick(atividade.id)} >{formatDate(atividade.end_date)}</td>
                   <td className="px-6 py-3 cursor-pointer"  onClick={() => handleRowClick(atividade.id)} >{atividade.entrega_date ? formatDate(atividade.entrega_date) : 'N/A'}</td>
                   <td className="px-6 py-4 flex justify-start space-x-2" >
-                    {atividade.feito_url && (
+
+                    {/*Botão de baixar atividade feita*/}
+                    {/* {atividade.feito_url && (
                       <button
-                        onClick={() => handleDownload(atividade.feito_url, 'atividades-recebidas')}
+                      onClick={() => handleDownloadFolderAsZip(atividade.feito_url.split('/')[0], `atividade-${atividade.id}.zip`)}
                         className="bg-blue-500 text-white p-2 rounded-md hover:bg-blue-600 cursor-pointer"
                       >
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
                           <path fillRule="evenodd" d="M12 2.25a.75.75 0 0 1 .75.75v11.69l3.22-3.22a.75.75 0 1 1 1.06 1.06l-4.5 4.5a.75.75 0 0 1-1.06 0l-4.5-4.5a.75.75 0 1 1 1.06-1.06l3.22 3.22V3a.75.75 0 0 1 .75-.75Zm-9 13.5a.75.75 0 0 1 .75.75v2.25a1.5 1.5 0 0 0 1.5 1.5h13.5a1.5 1.5 0 0 0 1.5-1.5V16.5a.75.75 0 0 1 1.5 0v2.25a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3V16.5a.75.75 0 0 1 .75-.75Z" clipRule="evenodd" />
                         </svg>
                       </button>
-                    )}
+                    )} */}
                     <button
   onClick={() => handleDelete(atividade.id)}
   className="bg-red-500 text-white p-2 rounded-md hover:bg-red-600 cursor-pointer"

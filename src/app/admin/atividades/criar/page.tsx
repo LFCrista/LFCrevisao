@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { supabase } from '../../../../lib/supabase'
 import { useRouter } from 'next/navigation'
 import Sidebar from '../../../../components/dashboard/Sidebar'
-import { withAuth } from '../../../../lib/auth';
+import { withAuth } from '../../../../lib/auth'
 
 const FormAtividade = () => {
   const [titulo, setTitulo] = useState('')
@@ -12,11 +12,12 @@ const FormAtividade = () => {
   const [usuarioId, setUsuarioId] = useState<string>('') 
   const [usuarioBusca, setUsuarioBusca] = useState<string>('') 
   const [usuariosEncontrados, setUsuariosEncontrados] = useState<any[]>([]) 
-  const [arquivo, setArquivo] = useState<File | null>(null)
+  const [arquivos, setArquivos] = useState<File[]>([]) // Agora armazenamos os arquivos como array
   const [startDate, setStartDate] = useState<string>('') 
   const [endDate, setEndDate] = useState<string>('') 
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [isFocused, setIsFocused] = useState<{ [key: string]: boolean }>({}); // Para controlar o foco de cada campo
+  const [fileExistsError, setFileExistsError] = useState<string | null>(null); // Mensagem de erro para arquivo duplicado
   const router = useRouter()
 
   const getJwtToken = () => {
@@ -24,22 +25,43 @@ const FormAtividade = () => {
     return jwt ? jwt : null
   }
 
-  const handleUpload = async (file: File, userId: string) => {
+  const handleUpload = async (file: File, userId: string, atividade: string) => {
     if (!file) return null
-
-    const sanitizedMonth = new Date().toLocaleString('default', { month: 'long' }).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
-    const filePath = `${userId}/${new Date().getFullYear()}/${sanitizedMonth}/${new Date().getDate()}/${file.name}`
-
+    
+    // Buscar o nome do usuário no banco de dados
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('name')
+      .eq('id', userId)
+      .single()
+  
+    if (userError || !userData) {
+      setUploadError('Erro ao buscar o nome do usuário.')
+      return null
+    }
+  
+    const userName = userData.name
+    
+    // Obter a data atual para formatar o caminho com ano, mês e dia
+    const now = new Date()
+    const year = now.getFullYear()  // Ano
+    const month = (now.getMonth() + 1).toString().padStart(2, '0')  // Mês com 2 dígitos
+    const day = now.getDate().toString().padStart(2, '0')  // Dia com 2 dígitos
+  
+    // Criar o caminho completo da pasta para a estrutura desejada
+    const filePath = `${userName}/${year}/${month}/${day}/${atividade}/`
+  
+    // Realizar o upload do arquivo para o Supabase
     const { data, error } = await supabase.storage
       .from('atividades-enviadas')
-      .upload(filePath, file, { cacheControl: '3600', upsert: true })
-
+      .upload(filePath + file.name, file, { cacheControl: '3600', upsert: true })
+  
     if (error) {
       setUploadError(error.message)
       return null
     }
-
-    return data?.path
+  
+    return filePath  // Retorna apenas o caminho da pasta, sem o nome do arquivo
   }
 
   const buscarUsuarios = async (name: string) => {
@@ -96,20 +118,22 @@ const FormAtividade = () => {
 
     const userIdToSend = usuarioId || ''
 
-    let arquivoCaminho = ''
-    if (arquivo) {
-      arquivoCaminho = await handleUpload(arquivo, userIdToSend) || ''
-    }
+    // Carregar todos os arquivos simultaneamente
+    const arquivosCaminho: string[] = await Promise.all(arquivos.map(async (file) => {
+      const caminhoArquivo = await handleUpload(file, userIdToSend, titulo)
+      return caminhoArquivo || ''
+    }))
 
     const validStartDate = startDate ? convertToUTCMinus3(startDate) : null
     const validEndDate = endDate ? convertToUTCMinus3(endDate) : null
 
+    // Atualiza a inserção no banco de dados, agora salvando apenas o caminho da pasta
     const { error } = await supabase
       .from('atividades')
       .insert([{
         titulo,
         descricao,
-        arquivo_url: arquivoCaminho,
+        arquivo_url: arquivosCaminho[0],  // Salvando apenas o caminho da pasta
         user_id: userIdToSend,
         start_date: validStartDate,
         end_date: validEndDate,
@@ -130,7 +154,6 @@ const FormAtividade = () => {
   }
 
   const getLabelClass = (value: string | File | null, id: string) => {
-    // Verificar se o campo está em foco ou preenchido
     const isFieldFocused = isFocused[id] || false
     return (value || isFieldFocused) ? 'text-[#00a830] top-[-1.1rem] scale-75' : 'text-gray-500 top-1/4 scale-100'
   }
@@ -143,14 +166,47 @@ const FormAtividade = () => {
     setIsFocused(prevState => ({ ...prevState, [id]: false }))
   }
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files) {
+      // Adicionando os novos arquivos ao estado existente sem sobrescrever
+      const newFiles = Array.from(files);
+
+      // Verificar se algum dos novos arquivos já está na lista
+      const duplicateFile = newFiles.find(file => arquivos.some(existingFile => existingFile.name === file.name));
+      if (duplicateFile) {
+        setFileExistsError(`O arquivo "${duplicateFile.name}" já foi carregado.`);
+      } else {
+        setArquivos((prevFiles) => [...prevFiles, ...newFiles]);
+        setFileExistsError(null); // Limpar a mensagem de erro caso não haja duplicados
+      }
+    }
+  }
+
+  const removeFile = (fileName: string) => {
+    setArquivos((prevArquivos) => prevArquivos.filter(file => file.name !== fileName));
+
+    // Resetando o input de arquivos para permitir adicionar novamente o arquivo removido
+    const fileInput = document.getElementById('fileInput') as HTMLInputElement;
+    if (fileInput) {
+      fileInput.value = ''; // Limpa o campo de arquivo
+    }
+  }
+
   return (
     <div className="flex overflow-hidden h-screen">
-      <Sidebar />
-      <div className="flex-1 p-6 bg-gray-100 overflow-hidden h-full">
+      {/* Sidebar fixa */}
+      <div className="w-64 h-full fixed top-0 left-0 z-10">
+        <Sidebar />
+      </div>
+
+      {/* Conteúdo principal com rolagem liberada */}
+      <div className="flex-1 p-6 bg-gray-100 overflow-auto h-full ml-64">
         <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-xl mx-auto">
           <h1 className="text-2xl font-semibold mb-6 text-center text-gray-800">Criar Atividade</h1>
 
           <form onSubmit={handleSubmit}>
+            {/* Título */}
             <div className="mb-6 relative">
               <input
                 type="text"
@@ -169,6 +225,7 @@ const FormAtividade = () => {
               </label>
             </div>
 
+            {/* Descrição */}
             <div className="mb-6 relative">
               <textarea
                 id="descricao"
@@ -186,6 +243,7 @@ const FormAtividade = () => {
               </label>
             </div>
 
+            {/* Buscar Usuário */}
             <div className="mb-6 relative">
               <input
                 type="text"
@@ -217,8 +275,9 @@ const FormAtividade = () => {
               )}
             </div>
 
+            {/* Data de Início */}
             <div className="mb-6 relative">
-              <label htmlFor="startDate" className={`ml-3 text-sm transition-all duration-300 ease-in-out transform origin-top-left ${getLabelClass(startDate, 'startDate')}`}>
+              <label htmlFor="startDate" className={`ml-3 text-sm transition-all duration-300 ease-in-out transform origin-top-left ${getLabelClass(startDate, 'startDate')}`} >
                 Data de Início
               </label>
               <input
@@ -232,9 +291,10 @@ const FormAtividade = () => {
               />
             </div>
 
+            {/* Data de Fim */}
             <div className="mb-6 relative">
-              <label htmlFor="endDate" className={`ml-3 text-sm transition-all duration-300 ease-in-out transform origin-top-left ${getLabelClass(endDate, 'endDate')}`}>
-                Data de Término
+              <label htmlFor="endDate" className={`ml-3 text-sm transition-all duration-300 ease-in-out transform origin-top-left ${getLabelClass(endDate, 'endDate')}`} >
+                Data de Fim
               </label>
               <input
                 type="datetime-local"
@@ -247,25 +307,52 @@ const FormAtividade = () => {
               />
             </div>
 
-            <div className="mb-6">
+            {/* Botão de Upload */}
+            <div className="mb-6 relative">
+              {/* Mostrar a mensagem de erro se houver arquivos duplicados */}
+              {fileExistsError && (
+                <div className="text-red-500 mb-2">
+                  {fileExistsError}
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={() => document.getElementById('fileInput')?.click()}
+                className="mt-2 block w-full px-3 py-2 bg-[#00a830] text-white rounded-lg focus:outline-none focus:ring-0"
+              >
+                Carregar Arquivos
+              </button>
               <input
                 type="file"
-                id="file"
-                onChange={(e) => setArquivo(e.target.files?.[0] || null)}
-                className={`mt-1 block w-full max-w-md text-sm py-2 border-0 border-b-2 transition-all duration-300 ease-in-out ${arquivo ? 'border-[#00a830]' : 'border-gray-300'}`}
+                id="fileInput"
+                accept="image/*,application/pdf,.doc,.docx,.ppt,.pptx"
+                multiple
+                onChange={handleFileChange}
+                className="hidden"
               />
+              <div className="mt-2">
+                {arquivos.map((file, index) => (
+                  <div key={index} className="flex items-center">
+                    <span>{file.name}</span>
+                    <button
+                      type="button"
+                      onClick={() => removeFile(file.name)}
+                      className="ml-2 text-red-500"
+                    >
+                      Remover
+                    </button>
+                  </div>
+                ))}
+              </div>
             </div>
 
-            {uploadError && <p className="text-red-500">{uploadError}</p>}
+            {uploadError && <div className="text-red-500 mb-4">{uploadError}</div>}
 
-            <div className="flex justify-center mt-6">
-              <button
-                type="submit"
-                className="py-2 px-6 bg-green-500 text-white rounded-md hover:bg-green-600 transition duration-300 text-sm"
-              >
-                Criar Atividade
-              </button>
-            </div>
+            <button
+              type="submit"
+              className="px-6 py-2 bg-[#00a830] text-white rounded-lg hover:bg-[#009624]">
+              Criar Atividade
+            </button>
           </form>
         </div>
       </div>
@@ -273,4 +360,4 @@ const FormAtividade = () => {
   )
 }
 
-export default withAuth(FormAtividade);
+export default withAuth(FormAtividade)
