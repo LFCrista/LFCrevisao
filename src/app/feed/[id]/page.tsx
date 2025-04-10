@@ -120,7 +120,6 @@ const AtividadePage = () => {
     }
   }
   
-  
 
   const fetchArquivosNaPasta = async (folderPath: string) => {
     try {
@@ -270,7 +269,7 @@ const AtividadePage = () => {
 
       const { error: updateError } = await supabase
         .from('atividades')
-        .update({ feito_url: folderPath, concluida: true })
+        .update({ feito_url: folderPath, concluida: true, entrega_date: currentDate.toISOString() }) // Atualização da data de entrega
         .eq('id', params.id)
 
       if (updateError) {
@@ -323,7 +322,6 @@ const AtividadePage = () => {
     </button>
   </div>
 )}
-
 
         {feitoArquivos.length > 0 && (
           <div className="mt-6 text-center">
