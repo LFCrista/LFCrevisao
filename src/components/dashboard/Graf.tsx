@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Doughnut } from 'react-chartjs-2';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
 import { supabase } from '../../lib/supabase'; // Importando a configuração do Supabase
+import { style } from 'framer-motion/client';
 
 // Registrando os elementos necessários do Chart.js
 ChartJS.register(ArcElement, Tooltip, Legend);
@@ -65,9 +66,9 @@ const Graf = () => {
         data: dataGrafico, // Dados calculados dinamicamente
         backgroundColor: ['#28a745', '#ffc107', '#dc3545'], // Cores verde, amarelo e vermelho
         borderColor: ['#28a745', '#ffc107', '#dc3545'],
-        borderWidth: 1,
+        borderWidth: 3,
       },
-    ],
+    ]
   };
 
   // Configuração do gráfico
