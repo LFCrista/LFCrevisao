@@ -217,75 +217,85 @@ const AtividadePage = () => {
     }
   }
 
+  const sanitizePathComponent = (str: string) => {
+    return str
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, '') // remove acentos
+      .replace(/[^\w\s.-]/g, '')       // permite letras, números, hífen, ponto e espaço
+      .trim()
+      .replace(/\s+/g, '-')            // substitui espaços por hífens
+      .toLowerCase()
+  }
+  
   const handleSubmit = async () => {
     if (feitoArquivos.length === 0) {
       console.error('Por favor, selecione pelo menos um arquivo para enviar.')
       return
     }
-
+  
     try {
       const currentDate = new Date()
       const year = currentDate.getFullYear()
       const month = (currentDate.getMonth() + 1).toString().padStart(2, '0')
       const day = currentDate.getDate().toString().padStart(2, '0')
-
-      const folderPath = `${nomeUsuario}/${year}/${month}/${day}/${atividade?.titulo}`
-
+  
+      const safeTitle = sanitizePathComponent(atividade?.titulo || 'atividade')
+      const safeUser = sanitizePathComponent(nomeUsuario || 'usuario')
+      const baseFolderPath = `${safeUser}/${year}/${month}/${day}/${safeTitle}`
+  
       for (const file of feitoArquivos) {
-        const fileName = file.name  // Mantém o nome original do arquivo
-
-        // Verificar se o arquivo já existe no banco
-        const existingFile = arquivosNaPasta.find(f => f.name === fileName)
-
+        const sanitizedName = sanitizePathComponent(file.name) // limpa o nome original
+        const fullPath = `${baseFolderPath}/${sanitizedName}`
+  
+        const existingFile = arquivosNaPasta.find(f => f.name === sanitizedName)
+  
         if (existingFile) {
-          const userConfirmed = window.confirm(`O arquivo "${fileName}" já existe. Deseja atualizar o arquivo?`)
+          const userConfirmed = window.confirm(`O arquivo "${sanitizedName}" já existe. Deseja atualizar?`)
           if (userConfirmed) {
-            // Remover o arquivo existente
-            const filePath = `${folderPath}/${fileName}`
             const { error: removeError } = await supabase.storage
               .from('atividades-recebidas')
-              .remove([filePath])
-
+              .remove([fullPath])
+  
             if (removeError) {
               console.error('Erro ao remover o arquivo existente:', removeError.message)
               return
             }
           } else {
-            // Se o usuário não quiser atualizar, ignore o upload deste arquivo
             continue
           }
         }
-
-        // Realizar o upload do novo arquivo
+  
         const { error: uploadError } = await supabase.storage
           .from('atividades-recebidas')
-          .upload(`${folderPath}/${fileName}`, file)
-
+          .upload(fullPath, file)
+  
         if (uploadError) {
           console.error('Erro ao fazer upload do arquivo:', uploadError.message)
           return
         }
       }
-
+  
       const { error: updateError } = await supabase
         .from('atividades')
-        .update({ feito_url: folderPath, concluida: true, entrega_date: currentDate.toISOString() }) // Atualização da data de entrega
+        .update({ feito_url: baseFolderPath, concluida: true, entrega_date: currentDate.toISOString() })
         .eq('id', params.id)
-
+  
       if (updateError) {
         console.error('Erro ao atualizar a atividade:', updateError.message)
       } else {
         alert('Atividade enviada com sucesso!')
-        setFeitoUrls([folderPath])
-        setFeitoArquivos([])  // Limpar os arquivos selecionados
+        setFeitoUrls([baseFolderPath])
+        setFeitoArquivos([])
         setStatusAtividade('Concluída')
         if (fileInputRef.current) fileInputRef.current.value = ''
-        fetchArquivosNaPasta(folderPath)  // Atualizar os arquivos da pasta
+        fetchArquivosNaPasta(baseFolderPath)
       }
     } catch (error: any) {
       console.error('Erro inesperado ao enviar a atividade:', error.message || error)
     }
   }
+  
+  
 
   return (
     <div className="min-h-screen flex flex-col justify-center items-center bg-gray-50 p-6">

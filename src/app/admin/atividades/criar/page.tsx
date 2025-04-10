@@ -25,9 +25,20 @@ const FormAtividade = () => {
     return jwt ? jwt : null
   }
 
+  const sanitizePathComponent = (str: string) => {
+    return str
+      .normalize("NFD")                    // Remove acentos
+      .replace(/[\u0300-\u036f]/g, '')     // Remove marcas de acento
+      .replace(/[^\w\s-]/g, '')            // Remove caracteres especiais
+      .trim()
+      .replace(/\s+/g, '-')                // Substitui espaços por hífens
+      .toLowerCase()
+  }
+  
+  
   const handleUpload = async (file: File, userId: string, atividade: string) => {
     if (!file) return null
-    
+  
     // Buscar o nome do usuário no banco de dados
     const { data: userData, error: userError } = await supabase
       .from('users')
@@ -41,28 +52,38 @@ const FormAtividade = () => {
     }
   
     const userName = userData.name
-    
+  
     // Obter a data atual para formatar o caminho com ano, mês e dia
     const now = new Date()
-    const year = now.getFullYear()  // Ano
-    const month = (now.getMonth() + 1).toString().padStart(2, '0')  // Mês com 2 dígitos
-    const day = now.getDate().toString().padStart(2, '0')  // Dia com 2 dígitos
+    const year = now.getFullYear()
+    const month = (now.getMonth() + 1).toString().padStart(2, '0')
+    const day = now.getDate().toString().padStart(2, '0')
   
-    // Criar o caminho completo da pasta para a estrutura desejada
-    const filePath = `${userName}/${year}/${month}/${day}/${atividade}/`
+    // Criar o caminho da pasta
+    const folderPath = `${sanitizePathComponent(userName)}/${year}/${month}/${day}/${sanitizePathComponent(atividade)}/`
   
-    // Realizar o upload do arquivo para o Supabase
+    // Separar nome e extensão do arquivo
+    const fileExtension = file.name.split('.').pop() || ''
+    const fileNameWithoutExtension = file.name.replace(/\.[^/.]+$/, '')
+    const cleanFileName = `${sanitizePathComponent(fileNameWithoutExtension)}.${fileExtension.toLowerCase()}`
+  
+    // Fazer o upload
     const { data, error } = await supabase.storage
       .from('atividades-enviadas')
-      .upload(filePath + file.name, file, { cacheControl: '3600', upsert: true })
+      .upload(folderPath + cleanFileName, file, {
+        cacheControl: '3600',
+        upsert: true,
+      })
   
     if (error) {
       setUploadError(error.message)
       return null
     }
   
-    return filePath  // Retorna apenas o caminho da pasta, sem o nome do arquivo
+    return folderPath // Retorna o caminho da pasta (sem o nome do arquivo)
   }
+  
+  
 
   const buscarUsuarios = async (name: string) => {
     if (name.trim() === '') {
