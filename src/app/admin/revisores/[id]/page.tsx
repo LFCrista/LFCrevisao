@@ -15,7 +15,7 @@ const RevisorPage = () => {
   const [error, setError] = useState<string | null>(null); // Estado para armazenar erros
 
   const params = useParams();
-  const id = params.id; // Acessando o parâmetro 'id'
+  const id = params?.id;  // Acessando o parâmetro 'id'
 
   useEffect(() => {
     const fetchRevisorAndAtividades = async () => {

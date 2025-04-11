@@ -123,33 +123,33 @@ const FormAtividade = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-
+  
     const jwt = getJwtToken()
     if (!jwt) {
       console.error('Token de autenticação não encontrado.')
       return
     }
-
+  
     const { data: session, error: sessionError } = await supabase.auth.getSession()
-
+  
     if (sessionError || !session) {
       console.error('Erro ao obter sessão:', sessionError?.message)
       return
     }
-
+  
     const userIdToSend = usuarioId || ''
-
+  
     // Carregar todos os arquivos simultaneamente
     const arquivosCaminho: string[] = await Promise.all(arquivos.map(async (file) => {
       const caminhoArquivo = await handleUpload(file, userIdToSend, titulo)
       return caminhoArquivo || ''
     }))
-
+  
     const validStartDate = startDate ? convertToUTCMinus3(startDate) : null
     const validEndDate = endDate ? convertToUTCMinus3(endDate) : null
-
-    // Atualiza a inserção no banco de dados, agora salvando apenas o caminho da pasta
-    const { error } = await supabase
+  
+    // Inserir a nova atividade
+    const { error: insertError } = await supabase
       .from('atividades')
       .insert([{
         titulo,
@@ -160,15 +160,53 @@ const FormAtividade = () => {
         end_date: validEndDate,
         created_at: new Date().toISOString(),
       }])
-
-    if (error) {
-      console.error('Erro ao inserir atividade:', error.message)
+  
+    if (insertError) {
+      console.error('Erro ao inserir atividade:', insertError.message)
       return
     }
-
+  
+    // Buscar o ID da última atividade inserida
+    const { data: atividadeCriada, error: fetchError } = await supabase
+      .from('atividades')
+      .select('id')
+      .order('created_at', { ascending: false })
+      .eq('user_id', userIdToSend)
+      .limit(1)
+      .single()
+  
+    if (fetchError || !atividadeCriada) {
+      console.error('Erro ao buscar ID da atividade:', fetchError?.message)
+      return
+    }
+  
+    // Buscar o email do usuário
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('email')
+      .eq('id', userIdToSend)
+      .single()
+  
+    if (userError || !userData) {
+      console.error('Erro ao buscar email do usuário:', userError?.message)
+    } else {
+      // Enviar e-mail com os dados da atividade
+      await fetch('/api/send-atividade-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: userData.email,
+          titulo,
+          descricao,
+          atividadeId: atividadeCriada.id,
+        }),
+      })
+    }
+  
     console.log('Atividade enviada com sucesso!')
     router.push('/admin/atividades')
   }
+  
 
   const getInputClass = (value: string | File | null) => {
     return value ? 'border-[#00a830]' : 'border-gray-300'

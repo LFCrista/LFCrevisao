@@ -62,7 +62,7 @@ export function withAuth(Component: React.ComponentType<any>) {
           router.push('/login');
         } 
         // Se o usuário não for admin e está tentando acessar rota '/admin', redireciona
-        else if (!isAdmin && pathname.startsWith('/admin')) {
+        else if (!isAdmin && pathname && pathname.startsWith('/admin')) {
           router.push('/feed'); // Redireciona para a página de feed ou qualquer outra que você deseje
         } 
         else {

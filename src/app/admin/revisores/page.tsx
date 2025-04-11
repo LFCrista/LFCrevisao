@@ -26,7 +26,7 @@ function Users() {
     const { data: publicUsers, error: publicUsersError } = await supabase
       .from('users')
       .select('*')
-      .limit(10);
+      .limit(50);
 
     if (publicUsersError) {
       console.error('Erro ao buscar usuários na tabela "users":', publicUsersError);
