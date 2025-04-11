@@ -168,6 +168,13 @@ const AtividadeDetalhes = () => {
               </span>
             </p>
 
+            {atividade.obs_envio && (
+  <p className="mt-4 whitespace-pre-wrap">
+    <strong>Observação do Envio:</strong><br />
+    {atividade.obs_envio}
+  </p>
+)}
+
             {status !== 'Concluída' && status !== 'Atrasada' && timeRemaining && (
               <p><strong>Tempo Restante:</strong> {`${timeRemaining.days} dias, ${timeRemaining.hours} horas, ${timeRemaining.minutes} minutos`}</p>
             )}

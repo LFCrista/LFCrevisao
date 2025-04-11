@@ -15,8 +15,11 @@ const AtividadePage = () => {
   const [feitoUrls, setFeitoUrls] = useState<string[]>([])
   const [arquivosNaPasta, setArquivosNaPasta] = useState<any[]>([])
   const [fileError, setFileError] = useState<string | null>(null)
+  const [observacaoEnvio, setObservacaoEnvio] = useState<string>('')
   const fileInputRef = useRef<HTMLInputElement>(null)
   const params = useParams()
+
+  
 
   useEffect(() => {
     const getUser = async () => {
@@ -33,7 +36,7 @@ const AtividadePage = () => {
     const fetchAtividadeData = async () => {
       const { data, error } = await supabase
         .from('atividades')
-        .select('id, titulo, descricao, user_id, arquivo_url, feito_url, start_date, end_date, concluida')
+        .select('id, titulo, descricao, user_id, arquivo_url, feito_url, start_date, end_date, concluida, obs_envio')
         .eq('id', params.id)
         .single()
 
@@ -43,7 +46,10 @@ const AtividadePage = () => {
       }
 
       if (data) {
+
         setAtividade(data)
+        setObservacaoEnvio(data.obs_envio ?? '')
+
         const currentDate = new Date()
         const endDate = new Date(data.end_date)
         if (currentDate > endDate && data.concluida) setStatusAtividade('Finalizada')
@@ -63,6 +69,8 @@ const AtividadePage = () => {
 
     fetchAtividadeData()
   }, [params.id, user])
+
+  
 
   const fetchNomeUsuario = async (userId: string) => {
     const { data, error } = await supabase
@@ -226,12 +234,32 @@ const AtividadePage = () => {
       .replace(/\s+/g, '-')            // substitui espaços por hífens
       .toLowerCase()
   }
+
+  
   
   const handleSubmit = async () => {
-    if (feitoArquivos.length === 0) {
-      console.error('Por favor, selecione pelo menos um arquivo para enviar.')
+    if (feitoArquivos.length === 0 && feitoUrls.length === 0) {
+      console.error('Você precisa anexar pelo menos um arquivo no primeiro envio.')
       return
     }
+
+    if (feitoArquivos.length === 0 && feitoUrls.length > 0) {
+      // Só atualizar a observação
+      const { error: updateError } = await supabase
+        .from('atividades')
+        .update({ obs_envio: observacaoEnvio })
+        .eq('id', params.id)
+    
+      if (updateError) {
+        console.error('Erro ao atualizar a observação:', updateError.message)
+      } else {
+        alert('Observação atualizada com sucesso!')
+      }
+    
+      return
+    }
+    
+    
   
     try {
       const currentDate = new Date()
@@ -276,9 +304,15 @@ const AtividadePage = () => {
       }
   
       const { error: updateError } = await supabase
-        .from('atividades')
-        .update({ feito_url: baseFolderPath, concluida: true, entrega_date: currentDate.toISOString() })
-        .eq('id', params.id)
+  .from('atividades')
+  .update({
+    feito_url: baseFolderPath,
+    concluida: true,
+    entrega_date: currentDate.toISOString(),
+    obs_envio: observacaoEnvio
+  })
+  .eq('id', params.id)
+
   
       if (updateError) {
         console.error('Erro ao atualizar a atividade:', updateError.message)
@@ -321,6 +355,15 @@ const AtividadePage = () => {
         ) : (
           <div>Carregando...</div>
         )}
+
+<textarea
+  value={observacaoEnvio}
+  onChange={(e) => setObservacaoEnvio(e.target.value)}
+  placeholder="Digite uma observação sobre o envio (opcional)..."
+  className="w-full mt-4 border p-2 rounded-lg resize-none"
+  rows={4}
+/>
+
 
 {atividade?.arquivo_url && (
   <div className="mt-6 text-center">
