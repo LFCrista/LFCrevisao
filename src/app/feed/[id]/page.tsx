@@ -17,6 +17,7 @@ const AtividadePage = () => {
   const [fileError, setFileError] = useState<string | null>(null)
   const [observacaoEnvio, setObservacaoEnvio] = useState<string>('') 
   const [erroUsuario, setErroUsuario] = useState<string | null>(null) // Estado para erro
+  const [finalizarEntrega, setFinalizarEntrega] = useState<boolean>(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const params = useParams()
   const router = useRouter() // Importar useRouter para redirecionamento
@@ -36,7 +37,7 @@ const AtividadePage = () => {
     const fetchAtividadeData = async () => {
       const { data, error } = await supabase
         .from('atividades')
-        .select('id, titulo, descricao, user_id, arquivo_url, feito_url, start_date, end_date, concluida, obs_envio')
+        .select('id, titulo, descricao, user_id, arquivo_url, feito_url, start_date, end_date, concluida, obs_envio, status')
         .eq('id', params.id)
         .single()
   
@@ -61,12 +62,25 @@ const AtividadePage = () => {
         setAtividade(data);
         setObservacaoEnvio(data.obs_envio ?? '');
   
-        const currentDate = new Date();
-        const endDate = new Date(data.end_date);
-        if (currentDate > endDate && data.concluida) setStatusAtividade('Finalizada');
-        else if (data.concluida) setStatusAtividade('Concluída');
-        else if (currentDate > endDate) setStatusAtividade('Atrasada');
-        else setStatusAtividade('Pendente');
+        
+          const currentDate = new Date();
+          const endDate = new Date(data.end_date);
+          let novoStatus = 'Pendente';
+        
+          // Verificar se a atividade já foi finalizada
+          if (data.status === 'Concluída') {
+            novoStatus = 'Concluída';  // Mantém o status como Concluída
+          } else if (currentDate > endDate && data.status !== 'Concluída') {
+            novoStatus = 'Atrasada';
+          } else if (data.feito_url) {
+            novoStatus = 'Em Progresso';
+          }
+        
+          // Atualiza o estado de status da atividade
+          setStatusAtividade(novoStatus);
+  
+        
+
   
         if (data.feito_url) {
           const folderPath = data.feito_url;
@@ -159,33 +173,45 @@ const AtividadePage = () => {
   
 
   const handleDownload = async (fileName: string) => {
-    if (!fileName) return
-
+    if (!fileName || !feitoUrls.length) return
+  
     try {
       const folderPath = feitoUrls[0]
       const filePath = `${folderPath}/${fileName}`
-
-      const { data: fileData, error } = await supabase.storage
+  
+      // Gera uma URL assinada com validade de 60 segundos
+      const { data, error } = await supabase.storage
         .from('atividades-recebidas')
-        .download(filePath)
-
-      if (error) {
-        console.error('Erro ao fazer download do arquivo:', error.message)
+        .createSignedUrl(filePath, 60)
+  
+      if (error || !data?.signedUrl) {
+        console.error('Erro ao gerar URL assinada:', error?.message)
         return
       }
-
-      const fileBlob = new Blob([fileData], { type: 'application/octet-stream' })
-      const fileUrl = URL.createObjectURL(fileBlob)
+  
+      // Adiciona um cache-buster na URL
+      const cacheBustedUrl = `${data.signedUrl}&cb=${Date.now()}`
+  
+      // Faz o download com fetch
+      const response = await fetch(cacheBustedUrl)
+      const blob = await response.blob()
+  
+      const url = URL.createObjectURL(blob)
       const link = document.createElement('a')
-      link.href = fileUrl
+      link.href = url
       link.download = fileName
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
-    } catch (error: any) {
-      console.error('Erro inesperado ao fazer o download:', error.message || error)
+  
+      // Libera a URL da memória
+      URL.revokeObjectURL(url)
+  
+    } catch (err: any) {
+      console.error('Erro inesperado no download:', err.message || err)
     }
   }
+  
 
   const handleRemove = async (fileName: string) => {
     if (!fileName) return
@@ -249,99 +275,126 @@ const AtividadePage = () => {
   }
 
   const handleSubmit = async () => {
+    if (!params?.id) return;
+  
     if (feitoArquivos.length === 0 && feitoUrls.length === 0) {
-      console.error('Você precisa anexar pelo menos um arquivo no primeiro envio.')
-      return
-    }
-  
-    if (feitoArquivos.length === 0 && feitoUrls.length > 0) {
-      const { error: updateError } = await supabase
-        .from('atividades')
-        .update({ obs_envio: observacaoEnvio })
-        .eq('id', params?.id)
-  
-      if (updateError) {
-        console.error('Erro ao atualizar a observação:', updateError.message)
-      } else {
-        alert('Observação atualizada com sucesso!')
-      }
-  
-      return
+      console.error('Você precisa anexar pelo menos um arquivo no primeiro envio.');
+      return;
     }
   
     try {
-      const currentDate = new Date()
-      const year = currentDate.getFullYear()
-      const month = (currentDate.getMonth() + 1).toString().padStart(2, '0')
-      const day = currentDate.getDate().toString().padStart(2, '0')
+      const currentDate = new Date();
+      const year = currentDate.getFullYear();
+      const month = (currentDate.getMonth() + 1).toString().padStart(2, '0');
+      const day = currentDate.getDate().toString().padStart(2, '0');
   
-      const safeTitle = sanitizePathComponent(atividade?.titulo || 'atividade')
-      const safeUser = sanitizePathComponent(nomeUsuario || 'usuario')
-      const baseFolderPath = `${safeUser}/${year}/${month}/${day}/${safeTitle}`
+      const safeTitle = sanitizePathComponent(atividade?.titulo || 'atividade');
+      const safeUser = sanitizePathComponent(nomeUsuario || 'usuario');
+      const baseFolderPath = `${safeUser}/${year}/${month}/${day}/${safeTitle}`;
   
+      // Upload dos arquivos, se houver
       for (const file of feitoArquivos) {
-        const sanitizedName = sanitizePathComponent(file.name)
-        const fullPath = `${baseFolderPath}/${sanitizedName}`
+        const sanitizedName = sanitizePathComponent(file.name);
+        const fullPath = `${baseFolderPath}/${sanitizedName}`;
   
-        // Verifica se o arquivo já existe na pasta
-        const existingFile = arquivosNaPasta.find(f => f.name === sanitizedName)
+        const existingFile = arquivosNaPasta.find(f => f.name === sanitizedName);
   
         if (existingFile) {
-          const userConfirmed = window.confirm(`O arquivo "${sanitizedName}" já existe. Deseja atualizar?`)
+          const userConfirmed = window.confirm(`O arquivo "${sanitizedName}" já existe. Deseja atualizar?`);
           if (userConfirmed) {
-            // Remove o arquivo existente se confirmado
             const { error: removeError } = await supabase.storage
               .from('atividades-recebidas')
-              .remove([fullPath])
+              .remove([fullPath]);
   
             if (removeError) {
-              console.error('Erro ao remover o arquivo existente:', removeError.message)
-              return
+              console.error('Erro ao remover o arquivo existente:', removeError.message);
+              return;
             }
           } else {
-            continue
+            continue;
           }
         }
   
-        // Faz o upload do arquivo
         const { error: uploadError } = await supabase.storage
           .from('atividades-recebidas')
-          .upload(fullPath, file)
+          .upload(fullPath, file);
   
         if (uploadError) {
-          console.error('Erro ao fazer upload do arquivo:', uploadError.message)
-          return
+          console.error('Erro ao fazer upload do arquivo:', uploadError.message);
+          return;
         }
       }
   
-      // Atualiza a URL dos arquivos enviados na tabela 'atividades'
-const { error: updateError } = await supabase
-.from('atividades')
-.update({
-  feito_url: baseFolderPath,
-  concluida: true,
-  entrega_date: currentDate.toISOString(),
-  obs_envio: observacaoEnvio
-})
-.eq('id', params?.id)
-
-if (updateError) {
-console.error('Erro ao atualizar a atividade:', updateError.message)
-} else {
-alert('Atividade concluída com sucesso!')
-}
-
-// Limpa os arquivos enviados da lista
-setFeitoArquivos([])
-
-// Recarrega os arquivos da pasta para atualizar a UI
-fetchArquivosNaPasta(baseFolderPath)
-
+      // Define status com base na escolha do usuário
+      let statusFinal = 'Em Progresso';
   
+      if (finalizarEntrega) {
+        const confirmacao = window.confirm('Você tem certeza que deseja finalizar a atividade?');
+        if (!confirmacao) return;
+  
+        statusFinal = 'Concluída';
+      }
+  
+      // Atualiza dados da atividade
+      const { data, error: updateError } = await supabase
+        .from('atividades')
+        .update({
+          feito_url: baseFolderPath,
+          entrega_date: currentDate.toISOString(),
+          obs_envio: observacaoEnvio,
+          status: statusFinal,
+        })
+        .eq('id', params.id)
+        .select('*')
+        .single();
+  
+      if (updateError) {
+        console.error('Erro ao atualizar a atividade:', updateError.message);
+        return;
+      }
+  
+      setStatusAtividade(statusFinal);
+  
+      if (statusFinal === 'Concluída') {
+        alert('A atividade foi concluída. Não será possível fazer mais alterações.');
+  
+        try {
+          const response = await fetch('/api/send-concAtividade-email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              titulo_atividade: data.titulo,
+              obs_envio: observacaoEnvio,
+              atividadeId: data.id,
+            }),
+          });
+  
+          const result = await response.json();
+  
+          if (result.success) {
+            console.log('E-mail enviado com sucesso!');
+          } else {
+            console.error('Erro ao enviar o e-mail:', result.error);
+          }
+        } catch (emailError: unknown) {
+          if (emailError instanceof Error) {
+            console.error('Erro ao enviar o e-mail:', emailError.message);
+          } else {
+            console.error('Erro ao enviar o e-mail:', emailError);
+          }
+        }
+      } else {
+        alert('Atividade enviada com sucesso! Ela está marcada como "Em Progresso".');
+      }
+  
+      setFeitoArquivos([]);
+      fetchArquivosNaPasta(baseFolderPath);
     } catch (error: any) {
-      console.error('Erro inesperado:', error.message || error)
+      console.error('Erro inesperado:', error.message || error);
     }
-  }
+  };
+  
+  
   
 
   return (
@@ -381,7 +434,22 @@ fetchArquivosNaPasta(baseFolderPath)
   placeholder="Digite uma observação sobre o envio (opcional)..."
   className="w-full mt-4 border p-2 rounded-lg resize-none"
   rows={4}
+  disabled={statusAtividade === 'Concluída' || statusAtividade === 'Atrasada'}
 />
+{statusAtividade !== 'Concluída' && statusAtividade !== 'Atrasada' &&(
+<div className="mt-4 flex items-start gap-2">
+  <input
+    type="checkbox"
+    id="finalizar-entrega"
+    checked={finalizarEntrega}
+    onChange={(e) => setFinalizarEntrega(e.target.checked)}
+    disabled={statusAtividade === 'Finalizada' || statusAtividade === 'Atrasada'}
+  />
+  <label htmlFor="finalizar-entrega" className="text-gray-700">
+    Entregar e finalizar atividade (você não poderá mais editar depois)
+  </label>
+</div>
+)}
 
 
 {atividade?.arquivo_url && (
@@ -416,7 +484,7 @@ fetchArquivosNaPasta(baseFolderPath)
           </div>
         )}
 
-    {statusAtividade !== 'Atrasada' && statusAtividade !== 'Finalizada' && (
+    {statusAtividade !== 'Atrasada' && statusAtividade !== 'Concluída' && (
         <div className="mt-6">
           <input
             ref={fileInputRef}
@@ -428,36 +496,44 @@ fetchArquivosNaPasta(baseFolderPath)
           {fileError && (
             <p className="text-red-600 mt-2">{fileError}</p>
           )}
+          {statusAtividade !== 'Concluída' && statusAtividade !== 'Atrasada' &&(
           <button
-            onClick={handleSubmit}
-            className="mt-4 px-6 py-2 bg-blue-500 text-white rounded-lg"
-          >
-            Enviar Atividade
-          </button>
+  onClick={handleSubmit}
+  className="mt-4 px-6 py-2 bg-blue-500 text-white rounded-lg"
+  disabled={statusAtividade === 'Concluída' || statusAtividade === 'Atrasada'}
+>
+  Enviar Atividade
+</button>
+)}
         </div>
          )}
         {feitoUrls.length > 0 && (
           <div className="mt-6 text-center">
             <div className="mb-4 space-y-2">
-              {arquivosNaPasta.map((file) => (
-                <div key={file.name} className="flex items-center justify-between bg-gray-100 rounded-lg p-2">
-                  <span className="text-gray-700">{file.name}</span>
-                  <div>
-                    <button
-                      onClick={() => handleDownload(file.name)}
-                      className="text-blue-500 hover:text-blue-700 mr-4"
-                    >
-                      Baixar
-                    </button>
-                    <button
-                      onClick={() => handleRemove(file.name)}
-                      className="text-red-500 hover:text-red-700"
-                    >
-                      Remover
-                    </button>
-                  </div>
-                </div>
-              ))}
+            {arquivosNaPasta.map((file) => (
+  <div key={file.name} className="flex items-center justify-between bg-gray-100 rounded-lg p-2">
+    <span className="text-gray-700">{file.name}</span>
+    <div>
+      <button
+        onClick={() => handleDownload(file.name)}
+        className="text-blue-500 hover:text-blue-700 mr-4"
+      >
+        Baixar
+      </button>
+      {statusAtividade !== 'Concluída' && statusAtividade !== 'Atrasada' &&(
+      <button
+        onClick={() => handleRemove(file.name)}
+        className="text-red-500 hover:text-red-700"
+        disabled={statusAtividade === 'Concluída' || statusAtividade === 'Atrasada'}
+      >
+        Remover
+      </button>
+      )}
+    </div>
+  </div>
+))}
+
+
             </div>
           </div>
         )}

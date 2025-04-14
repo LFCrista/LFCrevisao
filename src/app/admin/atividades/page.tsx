@@ -71,31 +71,23 @@ const AtividadesAdmin = () => {
   // };
   
   
-  const calculateStatus = (concluida: boolean, endDate: string) => {
-    const currentDate = new Date();
-    const endDateObj = new Date(endDate);
-
-    if (concluida) {
-      return 'Concluído';
-    } else if (endDateObj < currentDate) {
-      return 'Atrasado';
-    } else {
-      return 'Pendente';
-    }
-  };
+ 
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'Concluído':
+      case 'Concluída':
         return 'bg-green-100 text-green-800';
-      case 'Atrasado':
-        return 'bg-red-100 text-red-800';
       case 'Pendente':
         return 'bg-yellow-100 text-yellow-800';
+      case 'Em Progresso':
+        return 'bg-blue-100 text-blue-800';
+      case 'Atrasada':
+        return 'bg-red-100 text-red-800';
       default:
-        return '';
+        return 'bg-gray-100 text-gray-800';
     }
   };
+  
 
   const clearFilters = () => {
     setSearch('');
@@ -111,7 +103,7 @@ const AtividadesAdmin = () => {
     const fetchAtividades = async () => {
       try {
         let query = supabase.from('atividades').select(
-          'id, titulo, concluida, start_date, end_date, entrega_date, user_id, feito_url'
+          'id, titulo, status, start_date, end_date, entrega_date, user_id, feito_url'
         );
 
         if (search) {
@@ -158,11 +150,11 @@ const AtividadesAdmin = () => {
         );
 
         if (statusFilter) {
-          atividadesComUsuarios = atividadesComUsuarios.filter((atividade) => {
-            const status = calculateStatus(atividade.concluida, atividade.end_date);
-            return status === statusFilter;
-          });
+          atividadesComUsuarios = atividadesComUsuarios.filter(
+            (atividade) => atividade.status === statusFilter
+          );
         }
+        
 
         setAtividades(atividadesComUsuarios);
         setLoading(false);
@@ -303,9 +295,11 @@ const AtividadesAdmin = () => {
                   className="w-full p-2 border rounded-md"
                 >
                   <option value="">Selecione...</option>
-                  <option value="Concluído">Concluído</option>
-                  <option value="Pendente">Pendente</option>
-                  <option value="Atrasado">Atrasado</option>
+<option value="Pendente">Pendente</option>
+<option value="Em Progresso">Em Progresso</option>
+<option value="Concluída">Concluída</option>
+<option value="Atrasada">Atrasada</option>
+
                 </select>
               </div>
 
@@ -370,15 +364,17 @@ const AtividadesAdmin = () => {
           </thead>
           <tbody>
             {atividades.map((atividade) => {
-              const status = calculateStatus(atividade.concluida, atividade.end_date);
-              const statusColor = getStatusColor(status);
+              const statusColor = getStatusColor(atividade.status);
+              
+              
               return (
                 <tr key={atividade.id} className="border-b" >
                   <td className="px-6 py-3 cursor-pointer" onClick={() => handleRowClick(atividade.id)}>{atividade.titulo}</td>
                   <td className="px-6 py-4 cursor-pointer" onClick={() => handleRowClick(atividade.id)}>
-                    <span className={`px-3 py-1 rounded-full ${statusColor}`}>
-                      {status}
-                    </span>
+                  <span className={`px-3 py-1 rounded-full ${statusColor}`}>
+  {atividade.status}
+</span>
+
                   </td>
                   <td className="px-6 py-3 cursor-pointer"  onClick={() => handleRowClick(atividade.id)} >{atividade.name_usuario}</td>
                   <td className="px-6 py-3 cursor-pointer"  onClick={() => handleRowClick(atividade.id)} >{formatDate(atividade.start_date)}</td>

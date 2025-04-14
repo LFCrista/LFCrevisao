@@ -9,7 +9,7 @@ import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 
 const AtividadeDetalhes = () => {
-  const { id } = useParams();
+  const { id } = useParams() as { id: string | string[] };
   const router = useRouter();
   const [atividade, setAtividade] = useState<any>(null);
   const [revisor, setRevisor] = useState<string | null>(null);
@@ -40,13 +40,21 @@ const AtividadeDetalhes = () => {
     return { days, hours, minutes };
   };
 
-  const calculateStatus = (concluida: boolean, endDate: string) => {
-    const currentDate = new Date();
-    const end = new Date(endDate);
-    if (concluida) return { status: 'Concluída', colorClass: 'bg-green-500' };
-    if (currentDate > end) return { status: 'Atrasada', colorClass: 'bg-red-500' };
-    return { status: 'Pendente', colorClass: 'bg-yellow-500' };
+  const calculateStatus = (status: string) => {
+    switch (status) {
+      case 'Pendente':
+        return { status: 'Pendente', colorClass: 'bg-yellow-500' };
+      case 'Em Progresso':
+        return { status: 'Em Progresso', colorClass: 'bg-blue-500' };
+      case 'Concluída':
+        return { status: 'Concluída', colorClass: 'bg-green-500' };
+      case 'Atrasada':
+        return { status: 'Atrasada', colorClass: 'bg-red-500' };
+      default:
+        return { status: 'Desconhecido', colorClass: 'bg-gray-500' };
+    }
   };
+  
 
   useEffect(() => {
     const fetchAtividade = async () => {
@@ -134,7 +142,7 @@ const AtividadeDetalhes = () => {
   if (loading) return <div>Carregando...</div>;
   if (!atividade) return <div>Atividade não encontrada.</div>;
 
-  const { status, colorClass } = calculateStatus(atividade.concluida, atividade.end_date);
+  const { status, colorClass } = calculateStatus(atividade.status);
 
   return (
     <div className="flex min-h-screen">
@@ -175,9 +183,10 @@ const AtividadeDetalhes = () => {
   </p>
 )}
 
-            {status !== 'Concluída' && status !== 'Atrasada' && timeRemaining && (
-              <p><strong>Tempo Restante:</strong> {`${timeRemaining.days} dias, ${timeRemaining.hours} horas, ${timeRemaining.minutes} minutos`}</p>
-            )}
+{status !== 'Concluída' && status !== 'Atrasada' && timeRemaining && (
+  <p><strong>Tempo Restante:</strong> {`${timeRemaining.days} dias, ${timeRemaining.hours} horas, ${timeRemaining.minutes} minutos`}</p>
+)}
+
           </div>
 
           {atividade.arquivo_url && (
