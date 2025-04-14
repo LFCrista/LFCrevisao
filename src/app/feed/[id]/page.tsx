@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useRef } from 'react'
 import { supabase } from '../../../lib/supabase'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import JSZip from 'jszip'
 import { saveAs } from 'file-saver'
 
@@ -10,16 +10,16 @@ const AtividadePage = () => {
   const [atividade, setAtividade] = useState<any>(null)
   const [feitoArquivos, setFeitoArquivos] = useState<File[]>([])
   const [user, setUser] = useState<any>(null)
-  const [nomeUsuario, setNomeUsuario] = useState<string>('')
+  const [nomeUsuario, setNomeUsuario] = useState<string>('') 
   const [statusAtividade, setStatusAtividade] = useState<string>('') 
   const [feitoUrls, setFeitoUrls] = useState<string[]>([])
   const [arquivosNaPasta, setArquivosNaPasta] = useState<any[]>([])
   const [fileError, setFileError] = useState<string | null>(null)
-  const [observacaoEnvio, setObservacaoEnvio] = useState<string>('')
+  const [observacaoEnvio, setObservacaoEnvio] = useState<string>('') 
+  const [erroUsuario, setErroUsuario] = useState<string | null>(null) // Estado para erro
   const fileInputRef = useRef<HTMLInputElement>(null)
   const params = useParams()
-
-  
+  const router = useRouter() // Importar useRouter para redirecionamento
 
   useEffect(() => {
     const getUser = async () => {
@@ -31,48 +31,59 @@ const AtividadePage = () => {
   }, [])
 
   useEffect(() => {
-    if (!params.id || !user) return
-
+    if (!params?.id) return; // Verifica se o parâmetro 'id' está disponível
+  
     const fetchAtividadeData = async () => {
       const { data, error } = await supabase
         .from('atividades')
         .select('id, titulo, descricao, user_id, arquivo_url, feito_url, start_date, end_date, concluida, obs_envio')
         .eq('id', params.id)
         .single()
-
+  
       if (error) {
         console.error('Erro ao buscar dados da atividade:', error.message)
         return
       }
-
+  
       if (data) {
-
-        setAtividade(data)
-        setObservacaoEnvio(data.obs_envio ?? '')
-
-        const currentDate = new Date()
-        const endDate = new Date(data.end_date)
-        if (currentDate > endDate && data.concluida) setStatusAtividade('Finalizada')
-        else if (data.concluida) setStatusAtividade('Concluída')
-        else if (currentDate > endDate) setStatusAtividade('Atrasada')
-        else setStatusAtividade('Pendente')
-
-        if (data.feito_url) {
-          const folderPath = data.feito_url
-          setFeitoUrls([folderPath])
-          fetchArquivosNaPasta(folderPath)
+        // Aqui, obtemos o 'user_id' do 'localStorage' (ou de onde quer que esteja armazenado)
+        const localUserId = localStorage.getItem('user_id'); // ou o nome da chave no localStorage
+  
+        // Verifica se o 'user_id' da atividade corresponde ao 'user_id' no localStorage
+        if (data.user_id !== localUserId) {
+          setErroUsuario('Esta atividade não é para você.');
+          setTimeout(() => {
+            router.push('/')  // Redireciona para a página inicial
+          }, 3000);
+          return;
         }
-
-        fetchNomeUsuario(data.user_id)
+  
+        setAtividade(data);
+        setObservacaoEnvio(data.obs_envio ?? '');
+  
+        const currentDate = new Date();
+        const endDate = new Date(data.end_date);
+        if (currentDate > endDate && data.concluida) setStatusAtividade('Finalizada');
+        else if (data.concluida) setStatusAtividade('Concluída');
+        else if (currentDate > endDate) setStatusAtividade('Atrasada');
+        else setStatusAtividade('Pendente');
+  
+        if (data.feito_url) {
+          const folderPath = data.feito_url;
+          setFeitoUrls([folderPath]);
+          fetchArquivosNaPasta(folderPath);
+        }
+  
+        fetchNomeUsuario(data.user_id);
       }
     }
-
-    fetchAtividadeData()
-  }, [params.id, user])
-
   
+    fetchAtividadeData();
+  }, [params?.id]);  // Executa sempre que o parâmetro 'id' mudar
+  // Dependendo de params?.id e user
 
   const fetchNomeUsuario = async (userId: string) => {
+    if (!params?.id) return // Verifica se params está disponível
     const { data, error } = await supabase
       .from('users')
       .select('name')
@@ -91,35 +102,35 @@ const AtividadePage = () => {
       console.error('A URL dos arquivos enviados está ausente.')
       return
     }
-  
+
     const folderPath = atividade.arquivo_url
     const zip = new JSZip()
-  
+
     try {
       const { data: arquivos, error: listError } = await supabase.storage
         .from('atividades-enviadas')
         .list(folderPath)
-  
+
       if (listError || !arquivos || arquivos.length === 0) {
         console.error('Erro ao listar arquivos enviados:', listError?.message)
         alert('Nenhum arquivo encontrado para baixar.')
         return
       }
-  
+
       for (const file of arquivos) {
         const filePath = `${folderPath}/${file.name}`
         const { data: fileData, error } = await supabase.storage
           .from('atividades-enviadas')
           .download(filePath)
-  
+
         if (error) {
           console.error(`Erro ao baixar ${file.name}:`, error.message)
           continue
         }
-  
+
         zip.file(file.name, fileData)
       }
-  
+
       const zipBlob = await zip.generateAsync({ type: 'blob' })
       saveAs(zipBlob, `arquivos-enviados-${atividade.titulo}.zip`)
     } catch (error: any) {
@@ -127,24 +138,25 @@ const AtividadePage = () => {
       alert('Erro ao baixar arquivos enviados. Tente novamente.')
     }
   }
-  
 
   const fetchArquivosNaPasta = async (folderPath: string) => {
     try {
       const { data, error } = await supabase.storage
         .from('atividades-recebidas')
-        .list(folderPath, { limit: 100 })
-
+        .list(folderPath, { limit: 100 })  // Ajuste o limite conforme necessário
+  
       if (error) {
         console.error('Erro ao listar arquivos:', error.message)
         return
       }
-
+  
+      // Atualiza o estado com os novos arquivos da pasta
       if (data?.length) setArquivosNaPasta(data)
     } catch (error: any) {
       console.error('Erro inesperado ao listar arquivos:', error.message || error)
     }
   }
+  
 
   const handleDownload = async (fileName: string) => {
     if (!fileName) return
@@ -197,7 +209,6 @@ const AtividadePage = () => {
       setArquivosNaPasta(arquivosNaPasta.filter(file => file.name !== fileName))
       alert('Arquivo removido com sucesso!')
 
-      // Atualizar a lista de arquivos na pasta
       fetchArquivosNaPasta(folderPath)
 
     } catch (error: any) {
@@ -212,54 +223,51 @@ const AtividadePage = () => {
       const duplicates = newFiles.filter(newFile =>
         feitoArquivos.some(existing => existing.name === newFile.name)
       )
-
+  
       if (duplicates.length > 0) {
         setFileError(`O arquivo "${duplicates[0].name}" já foi adicionado.`)
         setTimeout(() => setFileError(null), 4000)
         if (fileInputRef.current) fileInputRef.current.value = ''
         return
       }
-
+  
+      // Atualiza o estado dos arquivos imediatamente após a seleção
       setFeitoArquivos(prev => [...prev, ...newFiles])
       if (fileInputRef.current) fileInputRef.current.value = ''
     }
   }
+  
 
   const sanitizePathComponent = (str: string) => {
     return str
       .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, '') // remove acentos
-      .replace(/[^\w\s.-]/g, '')       // permite letras, números, hífen, ponto e espaço
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^\w\s.-]/g, '')       
       .trim()
-      .replace(/\s+/g, '-')            // substitui espaços por hífens
+      .replace(/\s+/g, '-')            
       .toLowerCase()
   }
 
-  
-  
   const handleSubmit = async () => {
     if (feitoArquivos.length === 0 && feitoUrls.length === 0) {
       console.error('Você precisa anexar pelo menos um arquivo no primeiro envio.')
       return
     }
-
+  
     if (feitoArquivos.length === 0 && feitoUrls.length > 0) {
-      // Só atualizar a observação
       const { error: updateError } = await supabase
         .from('atividades')
         .update({ obs_envio: observacaoEnvio })
-        .eq('id', params.id)
-    
+        .eq('id', params?.id)
+  
       if (updateError) {
         console.error('Erro ao atualizar a observação:', updateError.message)
       } else {
         alert('Observação atualizada com sucesso!')
       }
-    
+  
       return
     }
-    
-    
   
     try {
       const currentDate = new Date()
@@ -272,14 +280,16 @@ const AtividadePage = () => {
       const baseFolderPath = `${safeUser}/${year}/${month}/${day}/${safeTitle}`
   
       for (const file of feitoArquivos) {
-        const sanitizedName = sanitizePathComponent(file.name) // limpa o nome original
+        const sanitizedName = sanitizePathComponent(file.name)
         const fullPath = `${baseFolderPath}/${sanitizedName}`
   
+        // Verifica se o arquivo já existe na pasta
         const existingFile = arquivosNaPasta.find(f => f.name === sanitizedName)
   
         if (existingFile) {
           const userConfirmed = window.confirm(`O arquivo "${sanitizedName}" já existe. Deseja atualizar?`)
           if (userConfirmed) {
+            // Remove o arquivo existente se confirmado
             const { error: removeError } = await supabase.storage
               .from('atividades-recebidas')
               .remove([fullPath])
@@ -293,6 +303,7 @@ const AtividadePage = () => {
           }
         }
   
+        // Faz o upload do arquivo
         const { error: uploadError } = await supabase.storage
           .from('atividades-recebidas')
           .upload(fullPath, file)
@@ -303,38 +314,46 @@ const AtividadePage = () => {
         }
       }
   
-      const { error: updateError } = await supabase
-  .from('atividades')
-  .update({
-    feito_url: baseFolderPath,
-    concluida: true,
-    entrega_date: currentDate.toISOString(),
-    obs_envio: observacaoEnvio
-  })
-  .eq('id', params.id)
+      // Atualiza a URL dos arquivos enviados na tabela 'atividades'
+const { error: updateError } = await supabase
+.from('atividades')
+.update({
+  feito_url: baseFolderPath,
+  concluida: true,
+  entrega_date: currentDate.toISOString(),
+  obs_envio: observacaoEnvio
+})
+.eq('id', params?.id)
+
+if (updateError) {
+console.error('Erro ao atualizar a atividade:', updateError.message)
+} else {
+alert('Atividade concluída com sucesso!')
+}
+
+// Limpa os arquivos enviados da lista
+setFeitoArquivos([])
+
+// Recarrega os arquivos da pasta para atualizar a UI
+fetchArquivosNaPasta(baseFolderPath)
 
   
-      if (updateError) {
-        console.error('Erro ao atualizar a atividade:', updateError.message)
-      } else {
-        alert('Atividade enviada com sucesso!')
-        setFeitoUrls([baseFolderPath])
-        setFeitoArquivos([])
-        setStatusAtividade('Concluída')
-        if (fileInputRef.current) fileInputRef.current.value = ''
-        fetchArquivosNaPasta(baseFolderPath)
-      }
     } catch (error: any) {
-      console.error('Erro inesperado ao enviar a atividade:', error.message || error)
+      console.error('Erro inesperado:', error.message || error)
     }
   }
-  
   
 
   return (
     <div className="min-h-screen flex flex-col justify-center items-center bg-gray-50 p-6">
       <div className="max-w-4xl w-full bg-white shadow-lg rounded-lg p-8">
         <h2 className="text-3xl font-semibold text-center text-gray-800 mb-6">Detalhes da Atividade</h2>
+
+        {erroUsuario && (
+          <div className="bg-red-500 text-white p-4 rounded-md mb-4">
+            <strong>{erroUsuario}</strong> Você será redirecionado em breve.
+          </div>
+        )}
 
         {atividade ? (
           <div className="space-y-6">
