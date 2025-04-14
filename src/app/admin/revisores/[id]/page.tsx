@@ -44,7 +44,7 @@ const RevisorPage = () => {
       // Buscar atividades associadas a este revisor (baseado no id do revisor)
       const { data: atividadesData, error: atividadesError } = await supabase
         .from('atividades')
-        .select('id, titulo, descricao, start_date, end_date, concluida')
+        .select('id, titulo, descricao, start_date, end_date, status')
         .eq('user_id', id); // Filtro baseado no user_id do revisor
 
       if (atividadesError) {
@@ -72,7 +72,7 @@ const RevisorPage = () => {
       {/* Conteúdo Principal */}
       <div className="flex-1 ml-64 p-6">
         <h2 className="text-3xl font-semibold text-center text-gray-800 mb-6">
-          Atividades do Revisor: {revisor?.name}
+          {revisor?.name}
         </h2>
 
         {error && (
