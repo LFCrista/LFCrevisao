@@ -22,16 +22,22 @@ const AtividadesList: React.FC<AtividadesListProps> = ({ atividades, userId }) =
     return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
   };
 
-  // Função para definir o status de cada atividade
+  // Função para definir o status de cada atividade usando a coluna 'status'
   const getStatusClass = (atividade: any) => {
     const currentDate = new Date();
     const endDate = new Date(atividade.end_date);
-    if (atividade.concluida) {
-      return 'bg-green-500 text-white'; // Concluído - Verde
-    } else if (endDate < currentDate) {
-      return 'bg-red-500 text-white'; // Atrasado - Vermelho
-    } else {
-      return 'bg-yellow-500 text-white'; // Pendente - Amarelo
+    
+    switch(atividade.status) {
+      case 'Concluída':
+        return 'bg-green-500 text-white'; // Concluída - Verde
+      case 'Atrasada':
+        return endDate < currentDate ? 'bg-red-500 text-white' : ''; // Atrasado - Vermelho
+      case 'Pendente':
+        return 'bg-yellow-500 text-white'; // Pendente - Amarelo
+      case 'Em Progresso':
+        return 'bg-blue-500 text-white'; // Em Progresso - Azul
+      default:
+        return ''; // Caso não tenha status definido
     }
   };
 
@@ -91,11 +97,7 @@ const AtividadesList: React.FC<AtividadesListProps> = ({ atividades, userId }) =
                   <td className="px-6 py-3">{atividade.titulo}</td>
                   <td className="px-6 py-4">
                     <span className={`px-3 py-1 rounded-full ${statusClass}`}>
-                      {atividade.concluida
-                        ? 'Concluído'
-                        : new Date(atividade.end_date) < new Date()
-                        ? 'Atrasado'
-                        : 'Pendente'}
+                      {atividade.status}
                     </span>
                   </td>
                   <td className="px-6 py-3">{formatDate(atividade.start_date)}</td>
