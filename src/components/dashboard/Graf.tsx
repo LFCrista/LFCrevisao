@@ -1,50 +1,49 @@
-'use client'; // Marca este arquivo como componente de cliente
+'use client';
 
 import { useEffect, useState } from 'react';
-import { Doughnut } from 'react-chartjs-2';
+import { Pie } from 'react-chartjs-2';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
-import { supabase } from '../../lib/supabase'; // Importando a configuração do Supabase
-import { style } from 'framer-motion/client';
+import { supabase } from '../../lib/supabase';
 
-// Registrando os elementos necessários do Chart.js
+// Registra os elementos do gráfico
 ChartJS.register(ArcElement, Tooltip, Legend);
 
 const Graf = () => {
-  const [dataGrafico, setDataGrafico] = useState([0, 0, 0]); // Estado para armazenar as quantidades de atividades
+  const [dataGrafico, setDataGrafico] = useState([0, 0, 0, 0]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Função para buscar as atividades do Supabase
     const fetchAtividades = async () => {
       try {
         const { data, error } = await supabase
           .from('atividades')
-          .select('concluida, end_date');
+          .select('status');
 
-        if (error) {
-          throw error;
-        }
+        if (error) throw error;
 
-        // Contadores para as cores
-        let concluido = 0;
-        let emAndamento = 0;
-        let atrasado = 0;
+        let pendente = 0;
+        let emProgresso = 0;
+        let concluida = 0;
+        let atrasada = 0;
 
-        // Iterando sobre as atividades
         data.forEach((atividade) => {
-          const isConcluida = atividade.concluida;
-          const isAtrasada = new Date(atividade.end_date) < new Date();
-          
-          if (isConcluida) {
-            concluido += 1; // A cor verde
-          } else if (!isConcluida && isAtrasada) {
-            atrasado += 1; // A cor vermelha
-          } else {
-            emAndamento += 1; // A cor amarela
+          switch (atividade.status) {
+            case 'Pendente':
+              pendente++;
+              break;
+            case 'Em Progresso':
+              emProgresso++;
+              break;
+            case 'Concluída':
+              concluida++;
+              break;
+            case 'Atrasada':
+              atrasada++;
+              break;
           }
         });
 
-        setDataGrafico([concluido, emAndamento, atrasado]);
+        setDataGrafico([pendente, emProgresso, concluida, atrasada]);
         setLoading(false);
       } catch (error) {
         console.error('Erro ao buscar dados do Supabase:', error);
@@ -52,26 +51,22 @@ const Graf = () => {
     };
 
     fetchAtividades();
-  }, []); // O useEffect roda uma vez quando o componente é montado
+  }, []);
 
-  if (loading) {
-    return <div>Carregando...</div>;
-  }
+  if (loading) return <div>Carregando gráfico...</div>;
 
-  // Dados para o gráfico com base nas quantidades
   const data = {
-    labels: ['Concluído', 'Em Andamento', 'Atrasado'],
+    labels: ['Pendente', 'Em Progresso', 'Concluída', 'Atrasada'],
     datasets: [
       {
-        data: dataGrafico, // Dados calculados dinamicamente
-        backgroundColor: ['#28a745', '#ffc107', '#dc3545'], // Cores verde, amarelo e vermelho
-        borderColor: ['#28a745', '#ffc107', '#dc3545'],
+        data: dataGrafico,
+        backgroundColor: ['#facc15', '#3b82f6', '#22c55e', '#ef4444'],
+        borderColor: ['#facc15', '#3b82f6', '#22c55e', '#ef4444'],
         borderWidth: 3,
       },
-    ]
+    ],
   };
 
-  // Configuração do gráfico
   const options = {
     responsive: true,
     plugins: {
@@ -85,20 +80,19 @@ const Graf = () => {
       legend: {
         labels: {
           font: {
-            size: 10, // Reduzindo o tamanho da fonte da legenda
-            weight: 'bold', // Usando "bold", que é um valor aceito
+            size: 14,
+            weight: 'bold' as const,
           },
-          usePointStyle: true, // Usando quadrados em vez de retângulos
+          usePointStyle: true,
         },
       },
     },
-    cutout: 80, // Cortando o gráfico para diminuir o espaço preenchido
-    aspectRatio: 1, // Garantindo que a altura e a largura sejam proporcionais
+    aspectRatio: 1,
   };
 
   return (
-    <div style={{ maxWidth: '200px', margin: '0 auto' }}>
-      <Doughnut data={data} height={200} width={200} /> {/* Gráfico */}
+    <div style={{ maxWidth: '250px', margin: '0 auto' }}>
+      <Pie data={data} options={options} />
     </div>
   );
 };
