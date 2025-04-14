@@ -8,6 +8,7 @@ import { supabase } from '../../lib/supabase'
 const FeedPage = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(true)
   const [tasksPending, setTasksPending] = useState<any[]>([]) // Para armazenar as tarefas "Pendentes"
+  const [tasksInProgress, setTasksInProgress] = useState<any[]>([]) // Para armazenar as tarefas "Em Progresso"
   const [tasksCompleted, setTasksCompleted] = useState<any[]>([]) // Para armazenar as tarefas "Concluídas"
   const [tasksLate, setTasksLate] = useState<any[]>([]) // Para armazenar as tarefas "Atrasadas"
   const router = useRouter()
@@ -27,51 +28,55 @@ const FeedPage = () => {
     checkAuth()
   }, [router])
 
-  // Função para buscar as tarefas do usuário logado usando o user_id do localStorage
   const fetchTasks = async (userId: string) => {
     try {
-      // Filtra as atividades com base no user_id armazenado no localStorage
-      const { data: todoTasks, error: todoError } = await supabase
+      const { data: tasks, error: tasksError } = await supabase
         .from('atividades')
         .select('*')
         .eq('user_id', userId)
-        .eq('concluida', false) // Tarefas que ainda não foram concluídas
-
-      if (todoError) throw todoError
-      setTasksPending(todoTasks)
-
-      const { data: completedTasks, error: completedError } = await supabase
-        .from('atividades')
-        .select('*')
-        .eq('user_id', userId)
-        .eq('concluida', true) // Tarefas que foram concluídas
-
-      if (completedError) throw completedError
-      setTasksCompleted(completedTasks)
-
-      // Buscar tarefas atrasadas (onde a data de término passou)
+  
+      if (tasksError) throw tasksError
+  
       const currentDate = new Date()
-
-      // Filtra tarefas pendentes que ainda não começaram ou que já passaram
-      const pendingTasks = todoTasks.filter((task) => {
-        const startDate = new Date(task.start_date)
-        const endDate = new Date(task.end_date)
-        return startDate <= currentDate && endDate >= currentDate // Tarefas que estão dentro do intervalo de tempo
-      })
-
-      setTasksPending(pendingTasks)
-
-      // Buscar tarefas atrasadas (onde a data de término passou)
-      const lateTasks = todoTasks.filter((task) => {
-        const endDate = new Date(task.end_date)
-        return endDate < currentDate // Tarefas que passaram do prazo
-      })
+  
+      // Verifica e atualiza tarefas atrasadas
+      const updatedLateTasks = await Promise.all(
+        tasks.map(async (task) => {
+          const endDate = new Date(task.end_date)
+          const isLate = endDate < currentDate
+          const isInProgressOrPending = task.status === 'Pendente' || task.status === 'Em Progresso'
+  
+          if (isLate && isInProgressOrPending) {
+            const { error: updateError } = await supabase
+              .from('atividades')
+              .update({ status: 'Atrasada' })
+              .eq('id', task.id)
+  
+            if (updateError) console.error(`Erro ao atualizar status da tarefa ${task.id}`, updateError)
+  
+            return { ...task, status: 'Atrasada' } // Simula que já foi atualizado
+          }
+  
+          return task
+        })
+      )
+  
+      // Filtragem normal com base nos status atualizados
+      const lateTasks = updatedLateTasks.filter(task => task.status === 'Atrasada')
+      const pendingTasks = updatedLateTasks.filter(task => task.status === 'Pendente')
+      const inProgressTasks = updatedLateTasks.filter(task => task.status === 'Em Progresso')
+      const completedTasks = updatedLateTasks.filter(task => task.status === 'Concluída')
+  
       setTasksLate(lateTasks)
-
+      setTasksPending(pendingTasks)
+      setTasksInProgress(inProgressTasks)
+      setTasksCompleted(completedTasks)
+  
     } catch (error) {
       console.error('Erro ao buscar tarefas:', error)
     }
   }
+  
 
   // Função para redirecionar para a página de detalhes da tarefa
   const handleTaskClick = (taskId: string) => {
@@ -126,7 +131,7 @@ const FeedPage = () => {
       <div className="content-container p-6 flex-grow">
         <h2 className="text-3xl font-semibold text-center mb-6">Bem-vindo ao Feed!</h2>
 
-        {/* Tarefas Pendentes (somente pendentes, sem atrasadas) */}
+        {/* Tarefas Pendentes */}
         <div className="tasks-section mb-8">
           <h3 className="text-2xl font-semibold inline-block mb-4 border-b-4 border-yellow-500">Pendentes</h3>
           <div className="tasks-grid grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 justify-start">
@@ -147,6 +152,29 @@ const FeedPage = () => {
               ))
             ) : (
               <p className="text-center text-gray-500">Não há tarefas pendentes.</p>
+            )}
+          </div>
+        </div>
+
+        {/* Tarefas Em Progresso */}
+        <div className="tasks-section mb-8">
+          <h3 className="text-2xl font-semibold inline-block mb-4 border-b-4 border-blue-500">Em Progresso</h3>
+          <div className="tasks-grid grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 justify-start">
+            {tasksInProgress.length > 0 ? (
+              tasksInProgress.map((task) => (
+                <div
+                  key={task.id}
+                  className="task-card bg-white p-4 rounded-lg cursor-pointer hover:bg-gray-200 transition-all duration-300 w-full h-64 flex flex-col items-center justify-center"
+                  style={{ boxShadow: '4px 4px 0 rgba(34, 153, 255, 0.6)' }} // Sombra azul sem desfoque
+                  onClick={() => handleTaskClick(task.id)}
+                >
+                  <h4 className="text-lg font-semibold text-center mb-2">{task.titulo}</h4>
+                  <p className="text-sm text-center text-gray-600">{task.descricao}</p>
+                  <p className="text-sm text-center mt-4 text-blue-500">Em Progresso</p>
+                </div>
+              ))
+            ) : (
+              <p className="text-center text-gray-500">Não há tarefas em progresso.</p>
             )}
           </div>
         </div>
