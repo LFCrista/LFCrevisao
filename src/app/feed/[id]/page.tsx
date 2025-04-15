@@ -82,6 +82,7 @@ const AtividadePage = () => {
         
 
   
+
         if (data.feito_url) {
           const folderPath = data.feito_url;
           setFeitoUrls([folderPath]);
@@ -283,14 +284,9 @@ const AtividadePage = () => {
     }
   
     try {
-      const currentDate = new Date();
-      const year = currentDate.getFullYear();
-      const month = (currentDate.getMonth() + 1).toString().padStart(2, '0');
-      const day = currentDate.getDate().toString().padStart(2, '0');
-  
       const safeTitle = sanitizePathComponent(atividade?.titulo || 'atividade');
       const safeUser = sanitizePathComponent(nomeUsuario || 'usuario');
-      const baseFolderPath = `${safeUser}/${year}/${month}/${day}/${safeTitle}`;
+      const baseFolderPath = `${safeUser}/${safeTitle}`; // Caminho simplificado
   
       // Upload dos arquivos, se houver
       for (const file of feitoArquivos) {
@@ -340,7 +336,7 @@ const AtividadePage = () => {
         .from('atividades')
         .update({
           feito_url: baseFolderPath,
-          entrega_date: currentDate.toISOString(),
+          entrega_date: new Date().toISOString(),
           obs_envio: observacaoEnvio,
           status: statusFinal,
         })
@@ -393,8 +389,6 @@ const AtividadePage = () => {
       console.error('Erro inesperado:', error.message || error);
     }
   };
-  
-  
   
 
   return (
