@@ -373,7 +373,31 @@ const AtividadePage = () => {
       // Criar notificações para os usuários
       await createNotifications(Array.isArray(params.id) ? params.id[0] : params.id, atividade?.titulo || 'Atividade', tipoAcao);
   
+      // Enviar e-mail apenas se a atividade for finalizada
       if (statusFinal === 'Concluída') {
+        try {
+          const response = await fetch('/api/send-concAtividade-email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              titulo_atividade: atividade?.titulo,
+              obs_envio: observacaoEnvio,
+              atividadeId: params.id,
+              nome_usuario: nomeUsuario, // Inclui o nome do usuário no corpo da requisição
+            }),
+          });
+  
+          const result = await response.json();
+  
+          if (result.success) {
+            console.log('E-mail enviado com sucesso!');
+          } else {
+            console.error('Erro ao enviar o e-mail:', result.error);
+          }
+        } catch (emailError) {
+          console.error('Erro ao enviar o e-mail:', emailError);
+        }
+  
         alert('A atividade foi concluída. Não será possível fazer mais alterações.');
       } else {
         alert('Atividade enviada com sucesso!');
