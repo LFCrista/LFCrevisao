@@ -254,7 +254,7 @@ const AtividadesAdmin = () => {
 
         {/* Modal de Filtros */}
         {isFilterModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(0,0,0,0.5)]">
             <div className="bg-white p-6 rounded-lg shadow-lg w-96">
               <h3 className="text-xl font-semibold mb-4">Filtros</h3>
               <div className="mb-4">
