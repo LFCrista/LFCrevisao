@@ -5,7 +5,7 @@ import { Resend } from 'resend';
 const resend = new Resend(process.env.RESEND_API_KEY); // Certifique-se de configurar a chave corretamente no .env
 
 export async function POST(req: Request) {
-  const { titulo_atividade, obs_envio, atividadeId } = await req.json(); // Recebendo os dados necessários
+  const { titulo_atividade, obs_envio, atividadeId, nome_usuario } = await req.json(); // Incluindo o nome do usuário
 
   // E-mail fixo (padrão)
   const to = "giovannafelipe.editora@gmail.com"; // Substitua pelo e-mail fixo desejado
@@ -14,10 +14,10 @@ export async function POST(req: Request) {
     const result = await resend.emails.send({
       from: 'LFC Revisão <noreply@estoquelfc.com>', // De onde o e-mail será enviado
       to, // Destinatário fixo
-      subject: `${titulo_atividade} Concluída`, // Assunto do e-mail
+      subject: `${nome_usuario} concluiu a atividade ${titulo_atividade}!`, // Assunto do e-mail
       html: `
         <div style="font-family: sans-serif; padding: 20px;">
-          <h2>${titulo_atividade} Concluída</h2>
+          <h2>${nome_usuario} concluiu a atividade ${titulo_atividade}!</h2>
           <p><strong>Observação de Envio:</strong> ${obs_envio}</p>
           <br />
           <a href="https://lfc-revisao.vercel.app/admin/atividades/${atividadeId}" target="_blank" 
