@@ -371,7 +371,7 @@ const AtividadePage = () => {
       setStatusAtividade(statusFinal);
   
       // Criar notificações para os usuários
-      await createNotifications(params.id, atividade?.titulo || 'Atividade', tipoAcao);
+      await createNotifications(Array.isArray(params.id) ? params.id[0] : params.id, atividade?.titulo || 'Atividade', tipoAcao);
   
       if (statusFinal === 'Concluída') {
         alert('A atividade foi concluída. Não será possível fazer mais alterações.');
