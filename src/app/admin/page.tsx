@@ -15,7 +15,7 @@ const Dashboard = () => {
       </div>
 
       {/* Conteúdo principal com scroll */}
-      <div className="ml-50 flex-1 overflow-y-auto h-screen ">
+      <div className="ml-50 flex-1 overflow-y-auto h-screen z-0">
         {/* Primeira Linha - Gráfico + Quant */}
         <div className="flex flex-col md:flex-row gap-4">
           <div className="flex-1 bg-white rounded-lg p-4">

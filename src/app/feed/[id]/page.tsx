@@ -98,19 +98,19 @@ const AtividadePage = () => {
   // Dependendo de params?.id e user
 
   const fetchNomeUsuario = async (userId: string) => {
-    if (!params?.id) return // Verifica se params está disponível
+    if (!params?.id) return; // Verifica se params está disponível
     const { data, error } = await supabase
       .from('users')
       .select('name')
       .eq('id', userId)
-      .single()
+      .single();
 
     if (error) {
-      console.error('Erro ao buscar nome do usuário:', error.message)
+      console.error('Erro ao buscar nome do usuário:', error.message);
     } else {
-      setNomeUsuario(data?.name || '')
+      setNomeUsuario(data?.name || ''); // Armazena o nome completo no estado
     }
-  }
+  };
 
   const handleDownloadArquivosEnviados = async () => {
     if (!atividade?.arquivo_url) {
@@ -278,15 +278,37 @@ const AtividadePage = () => {
   const handleSubmit = async () => {
     if (!params?.id) return;
   
-    if (feitoArquivos.length === 0 && feitoUrls.length === 0) {
-      console.error('Você precisa anexar pelo menos um arquivo no primeiro envio.');
+    // Verifica se o usuário está tentando enviar apenas a observação sem arquivos
+    if (feitoArquivos.length === 0 && feitoUrls.length === 0 && !observacaoEnvio) {
+      console.error('Você precisa anexar pelo menos um arquivo ou adicionar uma observação.');
+      return;
+    }
+  
+    // Verifica se o usuário está tentando enviar apenas a observação sem arquivos no bucket
+    if (feitoArquivos.length === 0 && arquivosNaPasta.length === 0 && observacaoEnvio) {
+      alert('Você precisa enviar pelo menos um arquivo antes de adicionar uma observação.');
       return;
     }
   
     try {
       const safeTitle = sanitizePathComponent(atividade?.titulo || 'atividade');
-      const safeUser = sanitizePathComponent(nomeUsuario || 'usuario');
+      const safeUser = sanitizePathComponent(nomeUsuario); // Usa o nome completo para o bucket
       const baseFolderPath = `${safeUser}/${safeTitle}`; // Caminho simplificado
+  
+      let tipoAcao: 'observacao' | 'progresso' | 'finalizacao' = 'observacao';
+  
+      // Verifica se arquivos foram adicionados
+      if (feitoArquivos.length > 0) {
+        tipoAcao = 'progresso';
+      }
+  
+      // Verifica se o usuário marcou como finalizado
+      if (finalizarEntrega) {
+        const confirmacao = window.confirm('Você tem certeza que deseja finalizar a atividade?');
+        if (!confirmacao) return;
+  
+        tipoAcao = 'finalizacao';
+      }
   
       // Upload dos arquivos, se houver
       for (const file of feitoArquivos) {
@@ -325,9 +347,6 @@ const AtividadePage = () => {
       let statusFinal = 'Em Progresso';
   
       if (finalizarEntrega) {
-        const confirmacao = window.confirm('Você tem certeza que deseja finalizar a atividade?');
-        if (!confirmacao) return;
-  
         statusFinal = 'Concluída';
       }
   
@@ -351,45 +370,76 @@ const AtividadePage = () => {
   
       setStatusAtividade(statusFinal);
   
+      // Criar notificações para os usuários
+      await createNotifications(Array.isArray(params.id) ? params.id[0] : params.id, atividade?.titulo || 'Atividade', tipoAcao);
+  
       if (statusFinal === 'Concluída') {
         alert('A atividade foi concluída. Não será possível fazer mais alterações.');
-  
-        try {
-          const response = await fetch('/api/send-concAtividade-email', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              titulo_atividade: data.titulo,
-              obs_envio: observacaoEnvio,
-              atividadeId: data.id,
-            }),
-          });
-  
-          const result = await response.json();
-  
-          if (result.success) {
-            console.log('E-mail enviado com sucesso!');
-          } else {
-            console.error('Erro ao enviar o e-mail:', result.error);
-          }
-        } catch (emailError: unknown) {
-          if (emailError instanceof Error) {
-            console.error('Erro ao enviar o e-mail:', emailError.message);
-          } else {
-            console.error('Erro ao enviar o e-mail:', emailError);
-          }
-        }
       } else {
-        alert('Atividade enviada com sucesso! Ela está marcada como "Em Progresso".');
+        alert('Atividade enviada com sucesso!');
       }
   
       setFeitoArquivos([]);
       fetchArquivosNaPasta(baseFolderPath);
+  
+      // Recarrega a página
+      window.location.reload();
     } catch (error: any) {
       console.error('Erro inesperado:', error.message || error);
     }
   };
   
+
+  const createNotifications = async (
+    atividadeId: string,
+    tituloAtividade: string,
+    tipoAcao: 'observacao' | 'progresso' | 'finalizacao'
+  ) => {
+    try {
+      const primeiroNome = nomeUsuario.split(' ')[0]; // Extrai apenas o primeiro nome
+      let texto = '';
+  
+      // Define a mensagem com base no tipo de ação
+      if (tipoAcao === 'observacao') {
+        texto = `📝 ${primeiroNome} atualizou as observações!`;
+      } else if (tipoAcao === 'progresso') {
+        texto = `🚀 ${primeiroNome} fez progresso na atividade!!`;
+      } else if (tipoAcao === 'finalizacao') {
+        texto = `🎉 ${primeiroNome} finalizou uma atividade!!!`;
+      }
+  
+      // IDs dos usuários que receberão a notificação
+      const userIds = [
+        'd037bb0b-d5aa-4d11-b61e-dfecc8ba5e64',
+        'd572c975-3bbc-46d2-8b03-6b5d0d258e2c',
+        '36975d29-601c-4b6f-85af-ee68fc923dc9',
+      ];
+  
+      // Cria notificações para cada usuário
+      const notifications = userIds.map((userId) => ({
+        user_id: userId,
+        texto,
+        link: `https://lfc-revisao.vercel.app/admin/atividades/${atividadeId}`,
+        visto: false, // Define como não vista inicialmente
+      }));
+  
+      const { error } = await supabase
+        .from('notifications')
+        .insert(notifications);
+  
+      if (error) {
+        console.error('Erro ao criar notificações:', error.message);
+      } else {
+        console.log('Notificações criadas com sucesso.');
+      }
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        console.error('Erro ao criar notificações:', error.message);
+      } else {
+        console.error('Erro ao criar notificações:', error);
+      }
+    }
+  };
 
   return (
     <div className="min-h-screen flex flex-col justify-center items-center bg-gray-50 p-6">
