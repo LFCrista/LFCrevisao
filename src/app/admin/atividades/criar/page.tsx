@@ -122,48 +122,52 @@ const FormAtividade = () => {
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+    e.preventDefault();
   
-    const jwt = getJwtToken()
+    const jwt = getJwtToken();
     if (!jwt) {
-      console.error('Token de autenticação não encontrado.')
-      return
+      console.error('Token de autenticação não encontrado.');
+      return;
     }
   
-    const { data: session, error: sessionError } = await supabase.auth.getSession()
+    const { data: session, error: sessionError } = await supabase.auth.getSession();
   
     if (sessionError || !session) {
-      console.error('Erro ao obter sessão:', sessionError?.message)
-      return
+      console.error('Erro ao obter sessão:', sessionError?.message);
+      return;
     }
   
-    const userIdToSend = usuarioId || ''
+    const userIdToSend = usuarioId || '';
   
     // Carregar todos os arquivos simultaneamente
-    const arquivosCaminho: string[] = await Promise.all(arquivos.map(async (file) => {
-      const caminhoArquivo = await handleUpload(file, userIdToSend, titulo)
-      return caminhoArquivo || ''
-    }))
+    const arquivosCaminho: string[] = await Promise.all(
+      arquivos.map(async (file) => {
+        const caminhoArquivo = await handleUpload(file, userIdToSend, titulo);
+        return caminhoArquivo || '';
+      })
+    );
   
-    const validStartDate = startDate ? convertToUTCMinus3(startDate) : null
-    const validEndDate = endDate ? convertToUTCMinus3(endDate) : null
+    const validStartDate = startDate ? convertToUTCMinus3(startDate) : null;
+    const validEndDate = endDate ? convertToUTCMinus3(endDate) : null;
   
     // Inserir a nova atividade
     const { error: insertError } = await supabase
       .from('atividades')
-      .insert([{
-        titulo,
-        descricao,
-        arquivo_url: arquivosCaminho[0],  // Salvando apenas o caminho da pasta
-        user_id: userIdToSend,
-        start_date: validStartDate,
-        end_date: validEndDate,
-        created_at: new Date().toISOString(),
-      }])
+      .insert([
+        {
+          titulo,
+          descricao,
+          arquivo_url: arquivosCaminho[0], // Salvando apenas o caminho da pasta
+          user_id: userIdToSend,
+          start_date: validStartDate,
+          end_date: validEndDate,
+          created_at: new Date().toISOString(),
+        },
+      ]);
   
     if (insertError) {
-      console.error('Erro ao inserir atividade:', insertError.message)
-      return
+      console.error('Erro ao inserir atividade:', insertError.message);
+      return;
     }
   
     // Buscar o ID da última atividade inserida
@@ -173,11 +177,28 @@ const FormAtividade = () => {
       .order('created_at', { ascending: false })
       .eq('user_id', userIdToSend)
       .limit(1)
-      .single()
+      .single();
   
     if (fetchError || !atividadeCriada) {
-      console.error('Erro ao buscar ID da atividade:', fetchError?.message)
-      return
+      console.error('Erro ao buscar ID da atividade:', fetchError?.message);
+      return;
+    }
+  
+    // Criar uma notificação para o usuário
+    const { error: notificationError } = await supabase
+      .from('notifications')
+      .insert([
+        {
+          user_id: userIdToSend, // O mesmo user_id da atividade
+          texto: '📌Nova atividade para você!!',
+          link: `https://lfc-revisao.vercel.app/feed/${atividadeCriada.id}`, // Link com o ID da atividade
+          visto: false, // Marca como não vista
+          created_at: new Date().toISOString(),
+        },
+      ]);
+  
+    if (notificationError) {
+      console.error('Erro ao criar notificação:', notificationError.message);
     }
   
     // Buscar o email do usuário
@@ -185,10 +206,10 @@ const FormAtividade = () => {
       .from('users')
       .select('email')
       .eq('id', userIdToSend)
-      .single()
+      .single();
   
     if (userError || !userData) {
-      console.error('Erro ao buscar email do usuário:', userError?.message)
+      console.error('Erro ao buscar email do usuário:', userError?.message);
     } else {
       // Enviar e-mail com os dados da atividade
       await fetch('/api/send-atividade-email', {
@@ -200,12 +221,12 @@ const FormAtividade = () => {
           descricao,
           atividadeId: atividadeCriada.id,
         }),
-      })
+      });
     }
   
-    console.log('Atividade enviada com sucesso!')
-    router.push('/admin/atividades')
-  }
+    console.log('Atividade enviada com sucesso!');
+    router.push('/admin/atividades');
+  };
   
 
   const getInputClass = (value: string | File | null) => {
