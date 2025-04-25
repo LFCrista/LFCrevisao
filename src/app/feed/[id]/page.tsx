@@ -358,6 +358,7 @@ const AtividadePage = () => {
           entrega_date: new Date().toISOString(),
           obs_envio: observacaoEnvio,
           status: statusFinal,
+          concluida: finalizarEntrega ? true : false, // 👈 aqui adiciona dinamicamente
         })
         .eq('id', params.id)
         .select('*')
