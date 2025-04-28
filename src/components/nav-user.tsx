@@ -75,7 +75,7 @@ export function NavUser({
   }
 }) {
   const { isMobile } = useSidebar()
-  const [theme, setTheme] = useState<string>("dark")
+  const [theme, setTheme] = useState<string>("light")
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [notifications, setNotifications] = useState<
     { id: string; texto: string; link: string; visto?: boolean }[]
