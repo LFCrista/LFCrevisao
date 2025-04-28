@@ -1,4 +1,4 @@
-
+"use client";
 
 import { ReactNode, useEffect, useState } from "react";
 import { Geist, Geist_Mono } from "next/font/google";
@@ -22,14 +22,27 @@ const geistMono = Geist_Mono({
 });
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
- 
+  const [theme, setTheme] = useState<string>("light");
+
+  // Quando o componente for montado, o tema será aplicado
+  useEffect(() => {
+    const savedTheme = localStorage.getItem("theme") || "light";
+    setTheme(savedTheme); // Atualiza o estado do tema com o valor salvo no localStorage
+
+    // Aplica a classe 'dark' ou 'light' no <body> com base no tema salvo
+    if (savedTheme === "dark") {
+      document.body.classList.add("dark");
+    } else {
+      document.body.classList.remove("dark");
+    }
+  }, []); // Executa uma vez, quando o componente é montado
 
   return (
     <html lang="pt-BR">
       <head>
         <meta name="google" content="notranslate" />
       </head>
-      <body className={`dark ${geistSans.variable} ${geistMono.variable}`}>
+      <body className={`${geistSans.variable} ${geistMono.variable}`}>
         <SidebarProvider>
           <AppSidebar />
           <SidebarInset>
