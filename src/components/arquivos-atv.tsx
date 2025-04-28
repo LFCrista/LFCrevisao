@@ -23,15 +23,19 @@ import {
   AlertDialogCancel,
 } from "@/components/ui/alert-dialog"
 
-// Função para limpar o nome do arquivo (tirar acentos, caracteres especiais, espaços e deixar tudo minúsculo)
 const sanitizePathComponent = (str: string) => {
+  // Verifica se a string é válida antes de manipular
+  if (typeof str !== "string") {
+    throw new Error("Input must be a string");
+  }
+
   return str
-    .normalize("NFD") // Decompor caracteres com acentos
-    .replace(/[\u0300-\u036f]/g, "") // Remover os acentos
-    .replace(/[^\w\s-]/g, "") // Remover caracteres especiais
-    .trim()
-    .replace(/\s+/g, "-") // Substituir espaços por hífens
-    .toLowerCase(); // Converter para minúsculas
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")  // Remove acentos
+    .replace(/[^\w\s-]/g, "")         // Remove caracteres especiais
+    .trim()                           // Remove espaços extras
+    .replace(/\s+/g, "-")             // Substitui espaços por -
+    .toLowerCase();                   // Converte para minúsculas
 }
 
 // Garante que o nome do arquivo seja seguro e mantenha a extensão

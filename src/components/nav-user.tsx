@@ -53,12 +53,18 @@ import { createPortal } from "react-dom"
 import Link from "next/link"
 
 function getInitials(name: string): string {
-  const names = name.split(" ")
-  if (names.length === 1) {
-    return names[0][0].toUpperCase()
+  if (typeof name !== "string" || name.trim() === "") {
+    throw new Error("Name must be a valid string");
   }
-  return names[0][0].toUpperCase() + names[names.length - 1][0].toUpperCase()
+
+  const names = name.split(" ");
+  if (names.length === 1) {
+    return names[0][0].toUpperCase(); // Retorna a inicial do primeiro nome
+  }
+  
+  return names[0][0].toUpperCase() + names[names.length - 1][0].toUpperCase(); // Inicial do primeiro e último nome
 }
+
 
 export function NavUser({
   user,
