@@ -25,9 +25,9 @@ export default function RootLayout({
   return (
     <html lang="pt-BR">
       <head>
-        <meta name="google" content="notranslate"/>
+        <meta name="google" content="notranslate" />
       </head>
-      <body className={`${geistSans.variable} ${geistMono.variable}`}>
+      <body>
         {children}
       </body>
     </html>
