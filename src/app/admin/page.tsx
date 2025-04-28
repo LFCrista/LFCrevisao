@@ -1,43 +1,59 @@
-'use client';
+"use client"
 
-import Sidebar from '@/components/dashboard/Sidebar';
-import Quant from '@/components/dashboard/Quant';
-import Grafico from '@/components/dashboard/Graf';
-import ListEnv from '@/components/dashboard/List.env';
-import ListRecb from '@/components/dashboard/List.Recb';
-import { withAuth } from '../../lib/auth';
+import { useState } from "react"
+import { PieChartCardTdsAtv } from "@/components/pie-chart-tdsAtv";
+import { BarChartCardMesAtv } from "@/components/bar-chart-mesAtv"; 
+import { BarChartCardAnual } from "@/components/bar-chart-anual";// ajuste o path se precisar
+import { TableUltimos } from "@/components/table-ultimos";
+import { TableRecebidos } from "@/components/table-recebidos";
+import { Select, SelectTrigger, SelectValue, SelectItem, SelectContent, SelectGroup } from "@/components/ui/select"
+import { withAuth } from '@/lib/auth'
 
-const Dashboard = () => {
+function Dashboard() {
+
+  const [selectedTable, setSelectedTable] = useState<string>("ultimos")
+
+  const handleSelectChange = (value: string) => {
+    setSelectedTable(value)
+  }
+
   return (
-    <div className="flex h-screen">
-      <div className="h-screen fixed left-0 top-0">
-        <Sidebar />
-      </div>
+        <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
+          <div className="grid auto-rows-min gap-4 md:grid-cols-3">
+            <PieChartCardTdsAtv />
+            <BarChartCardMesAtv />
+            <BarChartCardAnual />
+          </div>
+          {/* Seletor de Tabela */}
+          <div className="flex justify-between items-center">
+              <h2 className="text-lg font-bold">Exibir Tabela</h2>
+              <Select onValueChange={handleSelectChange}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione a Tabela" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ultimos">Últimos Enviados</SelectItem>
+                  <SelectItem value="recebidos">Atualizações</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
-      {/* Conteúdo principal com scroll */}
-      <div className="ml-50 flex-1 overflow-y-auto h-screen z-0">
-        {/* Primeira Linha - Gráfico + Quant */}
-        <div className="flex flex-col md:flex-row gap-4">
-          <div className="flex-1 bg-white rounded-lg p-4">
-            <Grafico />
-          </div>
-          <div className="flex-1 bg-white rounded-lg p-4">
-            <Quant />
-          </div>
-        </div>
+            {/* Exibindo a tabela selecionada */}
+            {selectedTable === "ultimos" && (
+              <div>
+                <h3 className="text-xl font-bold">Últimos Enviados</h3>
+                <TableUltimos />
+              </div>
+            )}
 
-        {/* Segunda Linha - Listas lado a lado */}
-        <div className="flex flex-col md:flex-row">
-          <div className="flex-1 bg-white rounded-lg p-4">
-            <ListEnv />
-          </div>
-          <div className="flex-1 bg-white rounded-lg p-4">
-            <ListRecb />
-          </div>
+            {selectedTable === "recebidos" && (
+              <div>
+                <h3 className="text-xl font-bold">Atualizações</h3>
+                <TableRecebidos />
+              </div>
+            )}
         </div>
-      </div>
-    </div>
-  );
-};
+  )
+}
 
 export default withAuth(Dashboard);
