@@ -69,6 +69,7 @@ export function NavUser({
   }
 }) {
   const { isMobile } = useSidebar()
+  const [theme, setTheme] = useState<string>("dark")
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [notifications, setNotifications] = useState<
     { id: string; texto: string; link: string; visto?: boolean }[]
@@ -101,6 +102,13 @@ export function NavUser({
   }
 
   useEffect(() => {
+    
+    const savedTheme = localStorage.getItem("theme")
+  if (savedTheme) {
+    setTheme(savedTheme)
+    document.documentElement.setAttribute("data-theme", savedTheme)
+  }
+
     const fetchNotifications = async () => {
       const userId = localStorage.getItem("user_id")
       if (!userId) return
@@ -193,6 +201,22 @@ export function NavUser({
       console.error("Erro ao excluir todas as notificações:", error)
     }
   }
+
+  const toggleTheme = () => {
+    const newTheme = theme === "light" ? "dark" : "light";
+    
+    // Atualizar o tema no estado
+    setTheme(newTheme);
+  
+    // Salvar a escolha do tema no localStorage
+    localStorage.setItem("theme", newTheme);
+  
+    // Atualizar o atributo do elemento <html> para aplicar o tema
+    document.documentElement.setAttribute("data-theme", newTheme);
+  
+    // Recarregar a página para aplicar a mudança de tema imediatamente
+    window.location.reload();
+  };
   
   
 
@@ -237,6 +261,13 @@ export function NavUser({
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
+              <DropdownMenuGroup>
+              <DropdownMenuItem onClick={toggleTheme}>
+  {theme === "light" ? <Sun /> : <Moon />}
+  Mudar para {theme === "light" ? "Modo Escuro" : "Modo Claro"}
+</DropdownMenuItem>
+<DropdownMenuSeparator />
+              </DropdownMenuGroup>
               <DropdownMenuGroup>
                 <DropdownMenuItem onClick={openModal}>
                   <Bell />
