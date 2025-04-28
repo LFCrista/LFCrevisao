@@ -58,6 +58,7 @@ const data = {
       title: "Atividades",
       url: "#",
       icon: FileText,
+      isActive: true,
       items: [
         {
           title: "Todas as Atividades",
@@ -73,6 +74,7 @@ const data = {
       title: "Colaboradores",
       url: "#",
       icon: Users,
+      isActive: true,
       items: [
         {
           title: "Todos os Colaboradores",
