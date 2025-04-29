@@ -1,7 +1,7 @@
 "use client";
 
 import React from 'react'
-import { FormAtv } from "@/components/form-atv"
+import { FormAtv } from "@/components/admin/form-atv"
 import { withAuth } from '@/lib/auth'
 
 function CriarAtvPage() {

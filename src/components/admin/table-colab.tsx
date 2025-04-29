@@ -21,7 +21,7 @@ import {
   PaginationEllipsis,
 } from "@/components/ui/pagination"
 import { Sheet, SheetTrigger, SheetContent, SheetHeader, SheetTitle, SheetClose } from "@/components/ui/sheet"
-import { ChartUser } from "@/components/chart-user"  // Importando o gráfico
+import { ChartUser } from "@/components/admin/chart-user"  // Importando o gráfico
 
 interface User {
   id: string

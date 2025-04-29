@@ -1,6 +1,6 @@
 "use client";
 
-import { FormUser } from "@/components/form-user" // Ajuste o caminho conforme necessário
+import { FormUser } from "@/components/admin/form-user" // Ajuste o caminho conforme necessário
 import { withAuth } from '@/lib/auth'
 
 

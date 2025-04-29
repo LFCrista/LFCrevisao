@@ -9,13 +9,13 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Search } from "lucide-react"
-import { ComboboxUsers } from "@/components/combobox"
+import { ComboboxUsers } from "@/components/admin/combobox"
 import { Sheet, SheetHeader, SheetTitle, SheetDescription, SheetContent, SheetFooter } from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
-import { DatePicker } from "@/components/date-picker"
+import { DatePicker } from "@/components/admin/date-picker"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription } from "@/components/ui/alert-dialog";
-import ArquivosAtv from "@/components/arquivos-atv"
-import FeitosAtv from "@/components/feitos-atv"
+import ArquivosAtv from "@/components/admin/arquivos-atv"
+import FeitosAtv from "@/components/admin/feitos-atv"
 
 
 interface Atividade {
@@ -282,7 +282,7 @@ const ListAtv: React.FC = () => {
 
   return (
     <div>
-      <div className="flex items-center justify-between gap-4 mb-4">
+      <div className="flex items-center justify-between gap-4 mb-4 ">
         <div className="flex items-center gap-2 flex-1">
           <Search className="size-4 text-muted-foreground" />
           <Input

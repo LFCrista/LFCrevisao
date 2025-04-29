@@ -1,11 +1,11 @@
 "use client"
 
 import { useState } from "react"
-import { PieChartCardTdsAtv } from "@/components/pie-chart-tdsAtv";
-import { BarChartCardMesAtv } from "@/components/bar-chart-mesAtv"; 
-import { BarChartCardAnual } from "@/components/bar-chart-anual";// ajuste o path se precisar
-import { TableUltimos } from "@/components/table-ultimos";
-import { TableRecebidos } from "@/components/table-recebidos";
+import { PieChartCardTdsAtv } from "@/components/admin/pie-chart-tdsAtv";
+import { BarChartCardMesAtv } from "@/components/admin/bar-chart-mesAtv"; 
+import { BarChartCardAnual } from "@/components/admin/bar-chart-anual";// ajuste o path se precisar
+import { TableUltimos } from "@/components/admin/table-ultimos";
+import { TableRecebidos } from "@/components/admin/table-recebidos";
 import { Select, SelectTrigger, SelectValue, SelectItem, SelectContent, SelectGroup } from "@/components/ui/select"
 import { withAuth } from '@/lib/auth'
 
