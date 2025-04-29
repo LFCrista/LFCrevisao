@@ -16,8 +16,8 @@ import {
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { DatePicker } from "@/components/date-picker"
-import { ComboboxUsers } from "@/components/combobox"
+import { DatePicker } from "@/components/admin/date-picker"
+import { ComboboxUsers } from "@/components/admin/combobox"
 import {
   Drawer,
   DrawerTrigger,

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
-import { LoginForm } from '@/components/login-form'
+import { LoginForm } from '@/components/admin/login-form'
 
 export default function Login() {
   const [email, setEmail] = useState('')

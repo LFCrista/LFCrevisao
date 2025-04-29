@@ -2,7 +2,7 @@
 
 import { ReactNode, useEffect, useState } from "react";
 import { Geist, Geist_Mono } from "next/font/google";
-import { AppSidebar } from "@/components/app-sidebar";
+import { AppSidebar } from "@/components/admin/app-sidebar";
 import { Separator } from "@/components/ui/separator";
 import {
   SidebarInset,

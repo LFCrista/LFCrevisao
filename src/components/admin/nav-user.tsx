@@ -52,18 +52,7 @@ import {
 import { createPortal } from "react-dom"
 import Link from "next/link"
 
-function getInitials(name: string): string {
-  if (typeof name !== "string" || name.trim() === "") {
-    throw new Error("Name must be a valid string");
-  }
 
-  const names = name.split(" ");
-  if (names.length === 1) {
-    return names[0][0].toUpperCase(); // Retorna a inicial do primeiro nome
-  }
-  
-  return names[0][0].toUpperCase() + names[names.length - 1][0].toUpperCase(); // Inicial do primeiro e último nome
-}
 
 
 export function NavUser({
@@ -98,6 +87,28 @@ export function NavUser({
       }
     }
   }
+
+  function getInitials(name: string): string {
+    if (typeof name !== "string" || name.trim() === "") {
+      return "??"; // Ou lance erro, se preferir
+    }
+  
+    // Remove espaços duplicados e strings vazias
+    const names = name
+      .trim()
+      .split(" ")
+      .filter((n) => n.trim() !== "");
+  
+    if (names.length === 0) {
+      return "??";
+    }
+  
+    const firstInitial = names[0][0]?.toUpperCase() ?? "";
+    const lastInitial = names.length > 1 ? names[names.length - 1][0]?.toUpperCase() : "";
+  
+    return firstInitial + lastInitial;
+  }
+  
 
   const openModal = () => {
     setIsModalOpen(true)

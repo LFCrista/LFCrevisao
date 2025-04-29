@@ -1,5 +1,5 @@
 "use client";
-import TableColab from "@/components/table-colab"
+import TableColab from "@/components/admin/table-colab"
 import { withAuth } from '@/lib/auth'
 
 const ColabList = () => {

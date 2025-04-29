@@ -2,7 +2,7 @@
 "use client"
 
 import React from 'react'
-import ListAtv from '@/components/list-atv'
+import ListAtv from '@/components/admin/list-atv'
 import { withAuth } from '@/lib/auth'
 
 const AtividadeList = () => {
