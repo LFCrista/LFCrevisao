@@ -27,6 +27,7 @@ interface Atividade {
   entrega_date: string | null
   status: string
   user_id: string
+  obs_envio?: string // <-- adiciona isso
 }
 
 interface User {
@@ -455,6 +456,18 @@ const ListAtv: React.FC = () => {
     </div>
   </div>
 )}
+
+{selectedAtividade && selectedAtividade.obs_envio && (
+  <div className="space-y-2">
+    <label className="block text-sm font-medium">
+      Observação do Envio
+    </label>
+    <div className="p-2 border rounded-md text-sm max-h-40 overflow-auto">
+      {selectedAtividade.obs_envio}
+    </div>
+  </div>
+)}
+
 
 <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
   <AlertDialogContent>
