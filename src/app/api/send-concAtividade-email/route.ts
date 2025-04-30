@@ -8,7 +8,7 @@ export async function POST(req: Request) {
   const { titulo_atividade, obs_envio, atividadeId, nome_usuario } = await req.json(); // Incluindo o nome do usuário
 
   // E-mail fixo (padrão)
-  const to = "joao.koguishi@gmail.com"; // Substitua pelo e-mail fixo desejado
+  const to = "giovannafelipe.editora@gmail.com"; // Substitua pelo e-mail fixo desejado
 
   try {
     const result = await resend.emails.send({
@@ -20,7 +20,7 @@ export async function POST(req: Request) {
           <h2>${nome_usuario} concluiu a atividade ${titulo_atividade}!</h2>
           <p><strong>Observação de Envio:</strong> ${obs_envio}</p>
           <br />
-          <a href="https://lfc-revisao.vercel.app/admin/atividades/${atividadeId}" target="_blank" 
+          <a href="https://lfc-revisao.vercel.app/admin/atividades/" target="_blank" 
              style="display: inline-block; padding: 10px 20px; background-color: #00a830; color: white; text-decoration: none; border-radius: 5px;">
             Ver Atividade
           </a>
