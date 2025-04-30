@@ -54,11 +54,12 @@ const ListAtv: React.FC = () => {
   const formatDate = (dateString: string | null) => {
     if (!dateString) return "---"
     const date = new Date(dateString)
-    date.setHours(date.getHours() - 3)
-    return date.toLocaleDateString("pt-BR", {
+    return date.toLocaleString("pt-BR", {
       day: "2-digit",
       month: "2-digit",
       year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
     })
   }
 
@@ -316,7 +317,11 @@ const ListAtv: React.FC = () => {
         </TableHeader>
         <TableBody>
           {atividades.map((atividade) => {
-            const usuarioNome = usuarios.get(atividade.user_id) || "Desconhecido"
+            const usuarioNome = usuarios.get(atividade.user_id) || "Desconhecido";
+            const nomeSplit = usuarioNome.split(" "); // Divide o nome completo em um array de palavras
+            const nomeExibido = nomeSplit[0]; // Mostra apenas o primeiro nome
+            
+            
             return (
               <TableRow key={atividade.id}>
                 <TableCell
@@ -333,7 +338,7 @@ const ListAtv: React.FC = () => {
                     {atividade.status}
                   </Badge>
                 </TableCell>
-                <TableCell>{usuarioNome}</TableCell>
+                <TableCell>{nomeExibido}</TableCell>
               </TableRow>
             )
           })}
@@ -419,6 +424,14 @@ const ListAtv: React.FC = () => {
         className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
       />
     </div>
+
+    {/* Responsável */}
+    <div className="space-y-2">
+        <label htmlFor="responsavel" className="block text-sm font-medium">Responsável</label>
+        <div className="p-2 border rounded-md text-sm">
+          {usuarios.get(selectedAtividade.user_id) || "Desconhecido"} {/* Exibe o nome completo do responsável */}
+        </div>
+      </div>
 
     {/* Data Início */}
     <div className="space-y-2">
