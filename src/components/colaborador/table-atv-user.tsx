@@ -137,7 +137,6 @@ const ListAtv: React.FC = () => {
   const formatDate = (dateString: string | null) => {
     if (!dateString) return "---"
     const date = new Date(dateString)
-    date.setHours(date.getHours() - 3) // Ajuste de fuso se necessário
     return date.toLocaleString("pt-BR", {
       day: "2-digit",
       month: "2-digit",
