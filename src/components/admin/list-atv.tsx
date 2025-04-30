@@ -462,7 +462,7 @@ const ListAtv: React.FC = () => {
     <label className="block text-sm font-medium">
       Observação do Envio
     </label>
-    <div className="p-2 border rounded-md text-sm max-h-40 overflow-auto">
+    <div style={{ whiteSpace: "pre-wrap" }} className="p-2 border rounded-md text-sm max-h-40 overflow-auto">
       {selectedAtividade.obs_envio}
     </div>
   </div>

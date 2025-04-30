@@ -18,7 +18,7 @@ export async function POST(req: Request) {
           <p><strong>Título:</strong> ${titulo}</p>
           <p><strong>Descrição:</strong> ${descricao}</p>
           <br />
-          <a href="https://lfc-revisao.vercel.app/feed/${atividadeId}" target="_blank" 
+          <a href="https://lfc-revisao.vercel.app/feed" target="_blank" 
              style="display: inline-block; padding: 10px 20px; background-color: #00a830; color: white; text-decoration: none; border-radius: 5px;">
             Ver Atividade
           </a>
