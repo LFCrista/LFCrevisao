@@ -20,7 +20,7 @@ export async function POST(req: Request) {
           <h2>${nome_usuario} concluiu a atividade ${titulo_atividade}!</h2>
           <p><strong>Observação de Envio:</strong> ${obs_envio}</p>
           <br />
-          <a href="https://lfc-revisao.vercel.app/admin/atividades/${atividadeId}" target="_blank" 
+          <a href="https://lfc-revisao.vercel.app/admin/atividades/" target="_blank" 
              style="display: inline-block; padding: 10px 20px; background-color: #00a830; color: white; text-decoration: none; border-radius: 5px;">
             Ver Atividade
           </a>
