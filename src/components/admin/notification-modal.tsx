@@ -26,12 +26,15 @@ import {
 } from "@/components/ui/alert-dialog"
 import { createPortal } from "react-dom"
 import { cn } from "@/lib/utils"
+import { format, parseISO, isToday, isYesterday } from "date-fns"
+import { ptBR } from "date-fns/locale"
 
 type Notification = {
   id: string
   texto: string
   link: string
   visto?: boolean
+  created_at: string // A data será fornecida como string
 }
 
 type Props = {
@@ -55,6 +58,51 @@ export function NotificationModal({
 }: Props) {
   if (!open) return null
 
+  // Função para agrupar notificações por dia
+  const groupByDay = (notifications: Notification[]) => {
+    const sorted = [...notifications].sort((a, b) =>
+      (b.created_at || "").localeCompare(a.created_at || "")
+    )
+
+    const groups: Record<string, Notification[]> = {}
+
+    for (const notif of sorted) {
+      const createdAt = notif.created_at ? parseISO(notif.created_at) : null
+      let label = "Sem data"
+
+      if (createdAt) {
+        // Ajusta a data para o fuso horário UTC-3
+        const localDate = new Date(createdAt.getTime() - 3 * 60 * 60 * 1000) // Subtrai 3 horas para UTC-3
+        label = format(localDate, "dd/MM/yyyy", { locale: ptBR })
+
+        if (isToday(localDate)) label = "Hoje"
+        else if (isYesterday(localDate)) label = "Ontem"
+      }
+
+      if (!groups[label]) groups[label] = []
+      groups[label].push(notif)
+    }
+
+    return groups
+  }
+
+  // Agrupando as notificações
+  const groupedNotifications = groupByDay(notifications)
+
+  // Função para formatar hora e minuto em UTC-3
+  const formatHora = (data: string | null) => {
+    if (!data) return ""
+    
+    // Verifica se a data existe e converte para o fuso horário UTC-3
+    const parsedDate = parseISO(data)
+    
+    // Verifica se a data foi convertida corretamente
+    if (isNaN(parsedDate.getTime())) return "Data inválida"
+    
+    const localDate = new Date(parsedDate.getTime()) // Subtrai 3 horas
+    return format(localDate, "HH:mm", { locale: ptBR }) // Formato de hora e minuto
+  }
+
   return createPortal(
     <div className="fixed inset-0 z-[9999]">
       <div
@@ -70,39 +118,52 @@ export function NotificationModal({
             </button>
           </CardHeader>
 
-          <CardContent className="h-[400px] overflow-y-auto px-4 py-2">
-            {/* Adicionando limite de altura e scroll */}
+          <CardContent className="h-[400px] overflow-y-auto px-4 py-2 space-y-4">
             {notifications.length === 0 ? (
               <p className="text-sm text-muted-foreground">Nenhuma notificação encontrada.</p>
             ) : (
-              <ul className="space-y-2">
-                {notifications.map((notification) => (
-                  <li
-                    key={notification.id}
-                    className="flex items-start gap-3 border-b pb-2 last:border-b-0"
-                  >
-                    {!notification.visto && (
-                      <div className="mt-1 w-2 h-2 rounded-full bg-primary shrink-0" />
-                    )}
-                    <span className="flex-1 text-sm leading-snug text-foreground">
-                      {notification.texto}
-                    </span>
-                    <Link
-                      href={notification.link || "#"}
-                      className="text-primary hover:text-primary/80"
-                      onClick={() => markAsRead(notification.id)}
-                    >
-                      <CircleArrowRight className="w-5 h-5" />
-                    </Link>
-                    <button
-                      onClick={() => deleteNotification(notification.id)}
-                      className="text-destructive hover:text-destructive/80"
-                    >
-                      <CircleX className="w-5 h-5" />
-                    </button>
-                  </li>
-                ))}
-              </ul>
+              Object.entries(groupedNotifications).map(([dia, lista]) => (
+                <div key={dia}>
+                  <p className="text-xs text-muted-foreground font-semibold mb-2">{dia}</p>
+                  <ul className="space-y-2">
+                    {lista.map((notification) => {
+                      const hora = notification.created_at
+                        ? formatHora(notification.created_at)
+                        : "Sem hora"
+
+                      return (
+                        <li
+                          key={notification.id}
+                          className="flex items-start gap-3 border-b pb-2 last:border-b-0"
+                        >
+                          {!notification.visto && (
+                            <div className="mt-1 w-2 h-2 rounded-full bg-primary shrink-0" />
+                          )}
+                          <div className="flex-1">
+                            <div className="text-xs text-muted-foreground mb-1">{hora}</div>
+                            <span className="text-sm leading-snug text-foreground">
+                              {notification.texto}
+                            </span>
+                          </div>
+                          <Link
+                            href={notification.link || "#"}
+                            className="text-primary hover:text-primary/80"
+                            onClick={() => markAsRead(notification.id)}
+                          >
+                            <CircleArrowRight className="w-5 h-5" />
+                          </Link>
+                          <button
+                            onClick={() => deleteNotification(notification.id)}
+                            className="text-destructive hover:text-destructive/80"
+                          >
+                            <CircleX className="w-5 h-5" />
+                          </button>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                </div>
+              ))
             )}
           </CardContent>
 

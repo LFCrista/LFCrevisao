@@ -1,160 +1,142 @@
-"use client";
+"use client"
 
-import { ReactNode, useEffect, useRef, useState } from "react";
-import { Geist, Geist_Mono } from "next/font/google";
-import { AppSidebar } from "@/components/admin/app-sidebar";
-import { Separator } from "@/components/ui/separator";
+import { ReactNode, useEffect, useState } from "react"
+import { Geist, Geist_Mono } from "next/font/google"
+import { AppSidebar } from "@/components/admin/app-sidebar"
+import { Separator } from "@/components/ui/separator"
 import { NotificationModal } from "@/components/admin/notification-modal"
-import {
-  Bell,
-  CircleArrowRight,
-  CircleX,
-  X,
-} from "lucide-react";
+import { Bell } from "lucide-react"
 import {
   SidebarInset,
   SidebarProvider,
   SidebarTrigger,
-} from "@/components/ui/sidebar";
-import { AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader, AlertDialogFooter, AlertDialogTitle, AlertDialogDescription, AlertDialogAction, AlertDialogCancel } from "@/components/ui/alert-dialog";
-import Link from "next/link";
-import { supabase } from "@/lib/supabase";
-import { createPortal } from "react-dom";
+} from "@/components/ui/sidebar"
+import { supabase } from "@/lib/supabase"
 
 // Fontes
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
-});
+})
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
-});
+})
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
-  const [theme, setTheme] = useState<string>("light");
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [theme, setTheme] = useState<string>("light")
+  const [isModalOpen, setIsModalOpen] = useState(false)
   const [notifications, setNotifications] = useState<
-    { id: string; texto: string; link: string; visto?: boolean }[]
-  >([]);
+    { id: string; texto: string; link: string; visto?: boolean; created_at: string }[]
+  >([])
 
   useEffect(() => {
-    const savedTheme = localStorage.getItem("theme") || "light";
-    setTheme(savedTheme);
-    document.body.classList.toggle("dark", savedTheme === "dark");
+    const savedTheme = localStorage.getItem("theme") || "light"
+    setTheme(savedTheme)
+    document.body.classList.toggle("dark", savedTheme === "dark")
 
     const fetchNotifications = async () => {
-      const userId = localStorage.getItem("user_id");
-      if (!userId) return;
+      const userId = localStorage.getItem("user_id")
+      if (!userId) return
 
       const { data, error } = await supabase
         .from("notifications")
-        .select("id, texto, link, visto")
-        .eq("user_id", userId);
+        .select("id, texto, link, visto, created_at")
+        .eq("user_id", userId)
 
       if (error) {
-        console.error("Erro ao buscar notificações:", error.message);
+        console.error("Erro ao buscar notificações:", error.message)
       } else {
-        setNotifications(data || []);
+        setNotifications(data || [])
       }
-    };
+    }
 
-    fetchNotifications();
-  }, []);
+    fetchNotifications()
+  }, [])
 
-  const openModal = () => setIsModalOpen(true);
-  const closeModal = () => setIsModalOpen(false);
+  const openModal = () => setIsModalOpen(true)
+  const closeModal = () => setIsModalOpen(false)
 
   const handleMarkAsRead = async (notificationId: string) => {
     const { error } = await supabase
       .from("notifications")
       .update({ visto: true })
-      .eq("id", notificationId);
+      .eq("id", notificationId)
 
     if (!error) {
       setNotifications((prev) =>
-        prev.map((n) =>
-          n.id === notificationId ? { ...n, visto: true } : n
-        )
-      );
+        prev.map((n) => (n.id === notificationId ? { ...n, visto: true } : n))
+      )
     }
-  };
+  }
 
   const handleMarkAllAsRead = async () => {
-    const userId = localStorage.getItem("user_id");
-    if (!userId) return;
+    const userId = localStorage.getItem("user_id")
+    if (!userId) return
 
     const { error } = await supabase
       .from("notifications")
       .update({ visto: true })
-      .eq("user_id", userId);
+      .eq("user_id", userId)
 
     if (!error) {
-      setNotifications((prev) => prev.map((n) => ({ ...n, visto: true })));
+      setNotifications((prev) => prev.map((n) => ({ ...n, visto: true })))
     }
-  };
+  }
 
   const handleDeleteNotification = async (notificationId: string) => {
     const { error } = await supabase
       .from("notifications")
       .delete()
-      .eq("id", notificationId);
+      .eq("id", notificationId)
 
     if (!error) {
-      setNotifications((prev) =>
-        prev.filter((n) => n.id !== notificationId)
-      );
+      setNotifications((prev) => prev.filter((n) => n.id !== notificationId))
     }
-  };
+  }
 
   const handleClearNotifications = async () => {
-    const userId = localStorage.getItem("user_id");
-    if (!userId) return;
+    const userId = localStorage.getItem("user_id")
+    if (!userId) return
 
     const { error } = await supabase
       .from("notifications")
       .delete()
-      .eq("user_id", userId);
+      .eq("user_id", userId)
 
     if (!error) {
-      setNotifications([]);
+      setNotifications([])
     }
-  };
+  }
 
   return (
-    <html lang="pt-BR">
-      <head>
-        <meta name="google" content="notranslate" />
-      </head>
-      <body className={`${geistSans.variable} ${geistMono.variable}`}>
-        <SidebarProvider>
-          <AppSidebar />
-          <SidebarInset>
-            <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
-              <div className="flex items-center gap-2 px-4">
-                <SidebarTrigger className="-ml-1" />
-                <Separator
-                  orientation="vertical"
-                  className="mr-2 data-[orientation=vertical]:h-4"
-                />
-                <div className="relative cursor-pointer" onClick={openModal}>
-  <Bell className="w-4.5" />
-  {notifications.some((n) => !n.visto) && (
-    <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-600 text-[10px] text-white font-bold">
-      {notifications.filter((n) => !n.visto).length}
-    </span>
-  )}
-</div>
-
+    <div className={`${geistSans.variable} ${geistMono.variable}`}>
+      <SidebarProvider>
+        <AppSidebar />
+        <SidebarInset>
+          <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
+            <div className="flex items-center gap-2 px-4">
+              <SidebarTrigger className="-ml-1" />
+              <Separator
+                orientation="vertical"
+                className="mr-2 data-[orientation=vertical]:h-4"
+              />
+              <div className="relative cursor-pointer" onClick={openModal}>
+                <Bell className="w-4.5" />
+                {notifications.some((n) => !n.visto) && (
+                  <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-600 text-[10px] text-white font-bold">
+                    {notifications.filter((n) => !n.visto).length}
+                  </span>
+                )}
               </div>
-            </header>
-            {children}
-          </SidebarInset>
-        </SidebarProvider>
+            </div>
+          </header>
+          {children}
+        </SidebarInset>
+      </SidebarProvider>
 
-        {/* Modal de Notificações */}
-        {isModalOpen &&
-          <NotificationModal
+      {isModalOpen && (
+        <NotificationModal
           open={isModalOpen}
           onClose={closeModal}
           notifications={notifications}
@@ -163,8 +145,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           deleteNotification={handleDeleteNotification}
           clearAll={handleClearNotifications}
         />
-          }
-      </body>
-    </html>
-  );
+      )}
+    </div>
+  )
 }
