@@ -55,29 +55,13 @@ const getSafeFileName = (originalName: string) => {
 }
 
 
-// Upload para Supabase com o nome do usuário na pasta
-const uploadFiles = async (user_id: string, activity_title: string, files: File[]) => {
-  const { data: userData, error: userError } = await supabase
-    .from("users")
-    .select("name")
-    .eq("id", user_id)
-    .single()
-
-  if (userError || !userData) {
-    console.error("Erro ao buscar o nome do usuário:", userError?.message)
-    return null
-  }
-
-  const userName = userData.name
-  const folderPath = `${sanitizePathComponent(userName)}/${sanitizePathComponent(activity_title)}/`
+const uploadFiles = async (user_id: string, activity_id: string, files: File[]) => {
+  const folderPath = `${sanitizePathComponent(user_id)}/${sanitizePathComponent(activity_id)}/`
   const uploadedFiles = []
 
   for (const file of files) {
-    const fileExtension = file.name.split('.').pop() || ''
-const fileNameWithoutExtension = file.name.replace(/\.[^/.]+$/, '')
-const cleanFileName = `${sanitizePathComponent(fileNameWithoutExtension)}.${fileExtension.toLowerCase()}`
-const filePath = folderPath + cleanFileName
-
+    const cleanFileName = getSafeFileName(file.name)
+    const filePath = folderPath + cleanFileName
 
     const { data, error } = await supabase.storage
       .from("atividades-enviadas")
@@ -96,6 +80,7 @@ const filePath = folderPath + cleanFileName
 
   return folderPath
 }
+
 
 const formSchema = z.object({
   title: z.string().min(2, {
@@ -176,66 +161,54 @@ export function FormAtv() {
   }
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
-    // const jwt = getJwtToken()
-    // if (!jwt) {
-    //   console.error("Token de autenticação não encontrado.")
-    //   return
-    // }
-  
-    // const { data: session, error: sessionError } = await supabase.auth.getSession()
-    // if (sessionError || !session) {
-    //   console.error("Erro ao obter sessão:", sessionError?.message)
-    //   return
-    // }
-  
     const userIdToSend = values.user_id
   
+    const validStartDate = values.inicio ? convertToUTCMinus3(values.inicio.toISOString()) : null
+    const validEndDate = values.prazo ? convertToUTCMinus3(values.prazo.toISOString()) : null
+  
+    // 1. Inserir a atividade inicialmente (sem arquivo_url)
+    const { data: atividadeCriada, error: insertError } = await supabase
+      .from("atividades")
+      .insert([
+        {
+          titulo: values.title,
+          descricao: values.description,
+          user_id: userIdToSend,
+          start_date: validStartDate,
+          end_date: validEndDate,
+          created_at: new Date().toISOString(),
+        },
+      ])
+      .select("id")
+      .single()
+  
+    if (insertError || !atividadeCriada) {
+      console.error("Erro ao inserir atividade:", insertError?.message)
+      return
+    }
+  
+    const activityId = atividadeCriada.id
+  
+    // 2. Upload dos arquivos com o ID da atividade
     const arquivosCaminho: string[] = await Promise.all(
       values.files.map(async (file) => {
-        const caminhoArquivo = await uploadFiles(userIdToSend, values.title, [file])
+        const caminhoArquivo = await uploadFiles(userIdToSend, activityId.toString(), [file])
         return caminhoArquivo || ""
       })
     )
   
-    const validStartDate = values.inicio ? convertToUTCMinus3(values.inicio.toISOString()) : null
-    const validEndDate = values.prazo ? convertToUTCMinus3(values.prazo.toISOString()) : null
-
-  
-    const { error: insertError } = await supabase.from("atividades").insert([
-      {
-        titulo: values.title,
-        descricao: values.description,
-        arquivo_url: arquivosCaminho[0],
-        user_id: userIdToSend,
-        start_date: validStartDate,
-        end_date: validEndDate,
-        created_at: new Date().toISOString(),
-      },
-    ])
-  
-    if (insertError) {
-      console.error("Erro ao inserir atividade:", insertError.message)
-      return
-    }
-  
-    const { data: atividadeCriada, error: fetchError } = await supabase
+    // 3. Atualizar a atividade com o caminho do arquivo
+    await supabase
       .from("atividades")
-      .select("id")
-      .order("created_at", { ascending: false })
-      .eq("user_id", userIdToSend)
-      .limit(1)
-      .single()
+      .update({ arquivo_url: arquivosCaminho[0] })
+      .eq("id", activityId)
   
-    if (fetchError || !atividadeCriada) {
-      console.error("Erro ao buscar ID da atividade:", fetchError?.message)
-      return
-    }
-  
+    // 4. Criar notificação
     const { error: notificationError } = await supabase.from("notifications").insert([
       {
         user_id: userIdToSend,
         texto: "📌Nova atividade para você!!",
-        link: `https://lfc-revisao.vercel.app/feed/${atividadeCriada.id}`,
+        link: `https://lfc-revisao.vercel.app/feed/${activityId}`,
         visto: false,
         created_at: new Date().toISOString(),
       },
@@ -245,6 +218,7 @@ export function FormAtv() {
       console.error("Erro ao criar notificação:", notificationError.message)
     }
   
+    // 5. Enviar e-mail
     const { data: userData, error: userError } = await supabase
       .from("users")
       .select("email")
@@ -261,14 +235,15 @@ export function FormAtv() {
           to: userData.email,
           titulo: values.title,
           descricao: values.description,
-          atividadeId: atividadeCriada.id,
+          atividadeId: activityId,
         }),
       })
     }
   
     console.log("Atividade enviada com sucesso!")
-    window.location.reload();
+    window.location.reload()
   }
+  
 
   return (
     <Form {...form}>

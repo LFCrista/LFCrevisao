@@ -38,9 +38,9 @@ const getSafeFileName = (originalName: string) => {
 
 interface FeitosUploadProps {
   atividadeId: string
-  nomeDoUser: string
-  isDisabled?: boolean; // Propriedade opcional
+  isDisabled?: boolean
 }
+
 
 const createNotifications = async (
   atividadeId: string,
@@ -103,7 +103,7 @@ const createNotifications = async (
 
 
 
-const FeitosUpload: React.FC<FeitosUploadProps> = ({ atividadeId, nomeDoUser,isDisabled }) => {
+const FeitosUpload: React.FC<FeitosUploadProps> = ({ atividadeId,isDisabled }) => {
   const [arquivos, setArquivos] = React.useState<any[]>([])
   const [pasta, setPasta] = React.useState<string | null>(null)
   const fileInputRef = React.useRef<HTMLInputElement | null>(null)
@@ -111,6 +111,7 @@ const FeitosUpload: React.FC<FeitosUploadProps> = ({ atividadeId, nomeDoUser,isD
   React.useEffect(() => {
     if (atividadeId) fetchCaminhoDaPasta(atividadeId)
   }, [atividadeId])
+  
 
   React.useEffect(() => {
     if (pasta) fetchArquivosNaPasta(pasta)
@@ -119,69 +120,30 @@ const FeitosUpload: React.FC<FeitosUploadProps> = ({ atividadeId, nomeDoUser,isD
   const fetchCaminhoDaPasta = async (id: string) => {
     const { data, error } = await supabase
       .from("atividades")
-      .select("feito_url, titulo")
+      .select("feito_url, user_id")
       .eq("id", id)
       .single()
-
-    if (data?.feito_url) {
-      const path = data.feito_url.replace(/\/$/, "")
-      setPasta(path)
-    } else if (data?.titulo) {
-      await criarBucketETabela(id, data.titulo)
+  
+    if (error || !data) {
+      console.error("Erro ao buscar atividade:", error?.message)
+      return
+    }
+  
+    const caminhoEsperado = `${data.user_id}/${id}`
+  
+    if (data.feito_url === caminhoEsperado) {
+      setPasta(caminhoEsperado)
+    } else {
+      // Corrige o caminho no banco se estiver ausente ou errado
+      await supabase
+        .from("atividades")
+        .update({ feito_url: caminhoEsperado })
+        .eq("id", id)
+  
+      setPasta(caminhoEsperado)
     }
   }
-
-  const criarBucketETabela = async (atividadeId: string, titulo: string) => {
-    const { data: atividadeData, error: atividadeError } = await supabase
-      .from("atividades")
-      .select("user_id")
-      .eq("id", atividadeId)
-      .single()
-
-    if (atividadeError || !atividadeData) {
-      console.error("Erro ao buscar dados da atividade:", atividadeError?.message)
-      return
-    }
-
-    const { user_id } = atividadeData
-
-    const { data: userData, error: userError } = await supabase
-      .from("users")
-      .select("name")
-      .eq("id", user_id)
-      .single()
-
-    if (userError || !userData) {
-      console.error("Erro ao buscar nome do usuário:", userError?.message)
-      return
-    }
-
-    const userName = userData.name
-    const folderPath = `${sanitizePathComponent(userName)}/${sanitizePathComponent(titulo)}`
-
-    // Verifica se a pasta já existe (opcional, já que o upload cria a estrutura automaticamente)
-    const { error: listError } = await supabase.storage
-      .from("atividades-recebidas")
-      .list(folderPath)
-
-    if (listError) {
-      console.error("Erro ao verificar pasta:", listError.message)
-      return
-    }
-
-    // Atualiza o campo feito_url
-    const { error: updateError } = await supabase
-      .from("atividades")
-      .update({ feito_url: folderPath })
-      .eq("id", atividadeId)
-
-    if (updateError) {
-      console.error("Erro ao salvar feito_url:", updateError.message)
-      return
-    }
-
-    setPasta(folderPath)
-  }
+  
 
   const fetchArquivosNaPasta = async (folderPath: string) => {
     const { data, error } = await supabase.storage

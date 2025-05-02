@@ -549,7 +549,6 @@ const ListAtv: React.FC = () => {
     <ArquivosDownload atividadeId={selectedAtividade.id} />
     <FeitosUpload 
       atividadeId={selectedAtividade.id} 
-      nomeDoUser={""} 
       isDisabled={false}  // Habilita o upload e remoção
     />
   </>
@@ -558,11 +557,8 @@ const ListAtv: React.FC = () => {
 {(selectedAtividade.status === "Concluída" || selectedAtividade.status === "Atrasada") && (
   <>
     <ArquivosDownload atividadeId={selectedAtividade.id} />
-    <FeitosUpload 
-      atividadeId={selectedAtividade.id} 
-      nomeDoUser={""} 
-      isDisabled={true}  // Desabilita o upload e remoção
-    />
+    <FeitosUpload atividadeId={selectedAtividade.id} isDisabled={false} />
+
   </>
 )}
 </div>
