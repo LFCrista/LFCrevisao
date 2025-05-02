@@ -63,14 +63,15 @@ export function NotificationModal({
       />
       <div className="absolute top-1/2 left-1/2 w-full max-w-md -translate-x-1/2 -translate-y-1/2">
         <Card className="overflow-hidden rounded-xl border shadow-xl bg-background">
-          <CardHeader className="flex items-center justify-between max-h-2 border-b">
+          <CardHeader className="flex items-center justify-between px-4 py-2 border-b">
             <CardTitle className="text-lg">Notificações</CardTitle>
             <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
               <X className="w-5 h-5" />
             </button>
           </CardHeader>
 
-          <CardContent className="max-h-[320px] overflow-y-auto px-4 py-2">
+          <CardContent className="h-[400px] overflow-y-auto px-4 py-2">
+            {/* Adicionando limite de altura e scroll */}
             {notifications.length === 0 ? (
               <p className="text-sm text-muted-foreground">Nenhuma notificação encontrada.</p>
             ) : (
@@ -105,7 +106,7 @@ export function NotificationModal({
             )}
           </CardContent>
 
-          <CardFooter className="flex justify-between items-center max-h-2 border-t">
+          <CardFooter className="flex justify-between items-center px-4 py-2 border-t">
             <button
               onClick={markAllAsRead}
               className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
