@@ -24,9 +24,9 @@ Um gerenciador de entregas de atividades para os colaboradores da empresa.
 
 ## 📌 Status do Projeto
 
-🚀 Versão atual 1.0.0
+🚀 Versão atual 1.0.1
 <br/>
-🛠️ Última atualização: 30 de Abril de 2025
+🛠️ Última atualização: 2 de Maio de 2025
 
 ## 👨‍💻 Autor
 Feito por **João Pedro Koguishi**<br/>
