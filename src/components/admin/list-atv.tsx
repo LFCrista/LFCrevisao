@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { useRouter } from "next/navigation"
 import { Table, TableHeader, TableBody, TableRow, TableCell, TableHead, TableCaption } from "@/components/ui/table"
 import { supabase } from "@/lib/supabase"
 import {
@@ -36,6 +37,7 @@ interface User {
 }
 
 const ListAtv: React.FC = () => {
+  const router = useRouter()
   const [atividades, setAtividades] = React.useState<Atividade[]>([])
   const [usuarios, setUsuarios] = React.useState<Map<string, string>>(new Map())
   const [loading, setLoading] = React.useState<boolean>(true)
@@ -149,6 +151,9 @@ const ListAtv: React.FC = () => {
     const handleTitleClick = (atividade: Atividade) => {
       setSelectedAtividade(atividade)  // Atualiza a atividade selecionada
     }
+
+    
+    
     
     
 
@@ -199,6 +204,20 @@ const ListAtv: React.FC = () => {
     fetchUsuarios()
   }, [currentPage, searchTerm, selectedUser])
 
+  React.useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const atividadeId = params.get("atividade")
+  
+    if (atividadeId && atividades.length > 0) {
+      const atividade = atividades.find((a) => a.id === atividadeId)
+      if (atividade) {
+        setSelectedAtividade(atividade)
+        setIsSheetOpen(true)
+      }
+    }
+  }, [atividades])
+  
+
   const handleNextPage = () => {
     if (currentPage < totalPages) setCurrentPage(currentPage + 1)
   }
@@ -227,7 +246,9 @@ const ListAtv: React.FC = () => {
   const handleTitleClick = (atividade: Atividade) => {
     setSelectedAtividade(atividade)
     setIsSheetOpen(true)
+    router.push(`/admin/atividades?atividade=${atividade.id}`)
   }
+  
 
   const handleSaveChanges = async () => {
     if (!selectedAtividade || !selectedAtividade.id) {
@@ -382,7 +403,11 @@ const ListAtv: React.FC = () => {
       </AlertDialog>
 
       {/* Menu lateral (Sheet) para editar a atividade */}
-      <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
+      <Sheet open={isSheetOpen} onOpenChange={(open) => {
+  setIsSheetOpen(open)
+  if (!open) router.replace("/admin/atividades")
+}}>
+
         <SheetContent side="right">
           <SheetHeader>
             <SheetTitle>Editar Atividade</SheetTitle>

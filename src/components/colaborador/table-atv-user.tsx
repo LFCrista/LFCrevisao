@@ -82,7 +82,7 @@ const createNotifications = async (
     const notifications = userIds.map((id) => ({
       user_id: id,
       texto,
-      link: `https://lfc-revisao.vercel.app/admin/atividades/${atividadeId}`,
+      link: `https://lfc-revisao.vercel.app/admin/atividades?atividade=${atividadeId}`,
       visto: false,
     }));
 
