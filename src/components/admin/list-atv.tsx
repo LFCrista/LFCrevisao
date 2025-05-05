@@ -208,14 +208,37 @@ const ListAtv: React.FC = () => {
     const params = new URLSearchParams(window.location.search)
     const atividadeId = params.get("atividade")
   
-    if (atividadeId && atividades.length > 0) {
-      const atividade = atividades.find((a) => a.id === atividadeId)
-      if (atividade) {
-        setSelectedAtividade(atividade)
-        setIsSheetOpen(true)
+    if (!atividadeId) return
+  
+    const atividadeLocal = atividades.find((a) => a.id === atividadeId)
+  
+    if (atividadeLocal) {
+      setSelectedAtividade(atividadeLocal)
+      setIsSheetOpen(true)
+    } else {
+      // Busca a atividade no Supabase caso não esteja nas atividades carregadas
+      const fetchAtividadeById = async () => {
+        const { data, error } = await supabase
+          .from("atividades")
+          .select("*")
+          .eq("id", atividadeId)
+          .single()
+  
+        if (error) {
+          console.error("Erro ao buscar atividade por ID:", error)
+          return
+        }
+  
+        if (data) {
+          setSelectedAtividade(data)
+          setIsSheetOpen(true)
+        }
       }
+  
+      fetchAtividadeById()
     }
   }, [atividades])
+  
   
 
   const handleNextPage = () => {
