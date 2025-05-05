@@ -146,12 +146,17 @@ export function NotificationModal({
                             </span>
                           </div>
                           <Link
-                            href={notification.link || "#"}
-                            className="text-primary hover:text-primary/80"
-                            onClick={() => markAsRead(notification.id)}
-                          >
-                            <CircleArrowRight className="w-5 h-5" />
-                          </Link>
+  href={notification.link || "#"}
+  className="text-primary hover:text-primary/80"
+  onClick={(e) => {
+    e.preventDefault(); // Previne o comportamento padrão do Link
+    markAsRead(notification.id); // Marca como lida
+    window.location.href = notification.link || "#"; // Redireciona e recarrega a página
+  }}
+>
+  <CircleArrowRight className="w-5 h-5" />
+</Link>
+
                           <button
                             onClick={() => deleteNotification(notification.id)}
                             className="text-destructive hover:text-destructive/80"
