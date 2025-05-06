@@ -28,6 +28,7 @@ interface Atividade {
   entrega_date: string | null
   status: string
   user_id: string
+  baixado: boolean
   obs_envio?: string // <-- adiciona isso
 }
 
@@ -49,6 +50,8 @@ const ListAtv: React.FC = () => {
   const [selectedAtividade, setSelectedAtividade] = React.useState<Atividade | null>(null)
   const [isAlertDialogOpen, setIsAlertDialogOpen] = React.useState(false); // Estado do AlertDialog
   const [isSaving, setIsSaving] = React.useState(false); 
+  const [baixadoChecked, setBaixadoChecked] = React.useState<boolean>(false);
+  const [selectedAtividadeId, setSelectedAtividadeId] = React.useState<string | null>(null);
   
 
   const ITEMS_PER_PAGE = 10
@@ -64,6 +67,52 @@ const ListAtv: React.FC = () => {
       minute: "2-digit",
     })
   }
+
+  const handleCheckboxChange = async (atividadeId: string, checked: boolean) => {
+  // Atualiza o estado local para refletir a mudança
+  const updatedAtividades = atividades.map((atividade) => 
+    atividade.id === atividadeId 
+      ? { ...atividade, baixado: checked } 
+      : atividade
+  );
+  setAtividades(updatedAtividades);
+
+  // Agora, atualiza o banco de dados
+  const { error } = await supabase
+    .from('atividades')
+    .update({ baixado: checked })
+    .eq('id', atividadeId);
+
+  if (error) {
+    console.error('Erro ao atualizar a atividade:', error);
+    alert('Erro ao atualizar a atividade.');
+  }
+};
+
+  
+
+  // Função para realizar a atualização no banco de dados
+  const updateBaixado = async (atividadeId: string, checked: boolean) => {
+    const { error } = await supabase
+      .from("atividades")
+      .update({ baixado: checked })
+      .eq("id", atividadeId);
+
+    if (error) {
+      console.error("Erro ao atualizar a atividade:", error);
+      alert("Erro ao atualizar a atividade.");
+    } else {
+      fetchAtividades(currentPage); // Atualiza as atividades após a mudança
+    }
+  };
+
+  // Função para confirmar a alteração e atualizar o estado de 'baixado'
+  const handleConfirmChange = () => {
+    if (selectedAtividadeId) {
+      updateBaixado(selectedAtividadeId, baixadoChecked);
+      setIsAlertDialogOpen(false); // Fecha o AlertDialog
+    }
+  };
 
   const fetchAtividades = async (page: number) => {
     const { data: atividadesData, error } = await supabase
@@ -228,6 +277,12 @@ const ListAtv: React.FC = () => {
           console.error("Erro ao buscar atividade por ID:", error)
           return
         }
+        const atividadeSelecionada = data.find((a: { id: string | null }) => a.id === selectedAtividadeId);
+    if (atividadeSelecionada) {
+      setBaixadoChecked(atividadeSelecionada.baixado);
+    }
+
+        
   
         if (data) {
           setSelectedAtividade(data)
@@ -274,30 +329,33 @@ const ListAtv: React.FC = () => {
   
 
   const handleSaveChanges = async () => {
+    // Verifica se a atividade foi selecionada corretamente e se a ID existe
     if (!selectedAtividade || !selectedAtividade.id) {
       console.error("Atividade não selecionada ou ID ausente.");
+      alert("Atividade não selecionada ou ID ausente.");
       return;
     }
-
+  
     const { id, ...dadosParaAtualizar } = selectedAtividade;
-
+  
     setIsSaving(true); // Ativa o estado de salvamento
-
+  
     const { error } = await supabase
       .from('atividades')
       .update(dadosParaAtualizar)
       .eq('id', id);
-
+  
     setIsSaving(false); // Desativa o estado de salvamento
-
+  
     if (error) {
       console.error('Erro ao atualizar atividade:', error);
       alert('Erro ao salvar alterações.');
     } else {
-      setIsSheetOpen(false);
-      window.location.reload();
+      setIsSheetOpen(false); // Fecha o modal após salvar
+      window.location.reload(); // Recarrega a página para refletir as alterações
     }
   };
+  
 
   const handleOpenAlertDialog = () => setIsAlertDialogOpen(true); // Abre o AlertDialog
   const handleCloseAlertDialog = () => setIsAlertDialogOpen(false); // Fecha o AlertDialog
@@ -325,6 +383,10 @@ const ListAtv: React.FC = () => {
   
 
   if (loading) return <div>Carregando...</div>
+
+  const handleSelectAtividade = (atividade: Atividade) => {
+    setSelectedAtividade(atividade);  // Atribui a atividade selecionada ao estado
+  };
 
   return (
     <div>
@@ -357,6 +419,7 @@ const ListAtv: React.FC = () => {
             <TableHead>Data Entrega</TableHead>
             <TableHead>Status</TableHead>
             <TableHead>Usuário</TableHead>
+            <TableHead>Baixado</TableHead> {/* Nova coluna */}
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -364,7 +427,6 @@ const ListAtv: React.FC = () => {
             const usuarioNome = usuarios.get(atividade.user_id) || "Desconhecido";
             const nomeSplit = usuarioNome.split(" "); // Divide o nome completo em um array de palavras
             const nomeExibido = nomeSplit[0]; // Mostra apenas o primeiro nome
-            
             
             return (
               <TableRow key={atividade.id}>
@@ -383,11 +445,32 @@ const ListAtv: React.FC = () => {
                   </Badge>
                 </TableCell>
                 <TableCell>{nomeExibido}</TableCell>
+                <TableCell>
+          <input
+            type="checkbox"
+            checked={atividade.baixado}
+            onChange={(e) => handleCheckboxChange(atividade.id, e.target.checked)}
+          />
+        </TableCell>
               </TableRow>
             )
           })}
         </TableBody>
       </Table>
+
+       {/* AlertDialog para confirmar a desmarcação */}
+       <AlertDialog open={isAlertDialogOpen} onOpenChange={setIsAlertDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar desmarcação</AlertDialogTitle>
+            <AlertDialogDescription>
+              Você tem certeza de que deseja desmarcar este checkbox?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogAction onClick={handleConfirmChange}>Sim, desmarcar</AlertDialogAction>
+          <AlertDialogCancel onClick={() => setIsAlertDialogOpen(false)}>Cancelar</AlertDialogCancel>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <Pagination>
         <PaginationContent>
