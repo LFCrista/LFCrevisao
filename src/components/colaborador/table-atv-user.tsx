@@ -22,6 +22,7 @@ import ArquivosDownload from "@/components/colaborador/arquivos-download"
 import FeitosUpload from "@/components/colaborador/feitos-upload"
 import { CalendarPrazo } from "./calendar-prazo"
 import { useRouter } from "next/navigation"
+import { useSearchParams } from 'next/navigation'
 
 
 interface Atividade {
@@ -121,6 +122,7 @@ const ListAtv: React.FC = () => {
   const [isSaving, setIsSaving] = React.useState(false); 
   const [obsEnvio, setObsEnvio] = React.useState<string>("")
   const [originalObsEnvio, setOriginalObsEnvio] = React.useState("")
+  const searchParams = useSearchParams()
 
 
   React.useEffect(() => {
@@ -133,42 +135,37 @@ const ListAtv: React.FC = () => {
 
 
   React.useEffect(() => {
-      const params = new URLSearchParams(window.location.search)
-      const atividadeId = params.get("atividade")
+    const atividadeId = searchParams?.get("atividade")
     
-      if (!atividadeId) return
-    
-      const atividadeLocal = atividades.find((a) => a.id === atividadeId)
-    
-      if (atividadeLocal) {
-        setSelectedAtividade(atividadeLocal)
-        setIsSheetOpen(true)
-      } else {
-        // Busca a atividade no Supabase caso não esteja nas atividades carregadas
-        const fetchAtividadeById = async () => {
-          const { data, error } = await supabase
-            .from("atividades")
-            .select("*")
-            .eq("id", atividadeId)
-            .single()
-    
-          if (error) {
-            console.error("Erro ao buscar atividade por ID:", error)
-            return
-          }
-     
-  
-          
-    
-          if (data) {
-            setSelectedAtividade(data)
-            setIsSheetOpen(true)
-          }
+    if (!atividadeId) return
+
+    const atividadeLocal = atividades.find((a) => a.id === atividadeId)
+
+    if (atividadeLocal) {
+      setSelectedAtividade(atividadeLocal)
+      setIsSheetOpen(true)
+    } else {
+      const fetchAtividadeById = async () => {
+        const { data, error } = await supabase
+          .from("atividades")
+          .select("*")
+          .eq("id", atividadeId)
+          .single()
+
+        if (error) {
+          console.error("Erro ao buscar atividade por ID:", error)
+          return
         }
-    
-        fetchAtividadeById()
+
+        if (data) {
+          setSelectedAtividade(data)
+          setIsSheetOpen(true)
+        }
       }
-    }, [])
+
+      fetchAtividadeById()
+    }
+  }, [searchParams, atividades]) 
   
 
   
