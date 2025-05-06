@@ -277,10 +277,7 @@ const ListAtv: React.FC = () => {
           console.error("Erro ao buscar atividade por ID:", error)
           return
         }
-        const atividadeSelecionada = data.find((a: { id: string | null }) => a.id === selectedAtividadeId);
-    if (atividadeSelecionada) {
-      setBaixadoChecked(atividadeSelecionada.baixado);
-    }
+        
 
         
   
@@ -289,10 +286,13 @@ const ListAtv: React.FC = () => {
           setIsSheetOpen(true)
         }
       }
+
+      
   
       fetchAtividadeById()
+      
     }
-  }, [atividades])
+  }, [])
   
   
 

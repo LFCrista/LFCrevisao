@@ -168,7 +168,7 @@ const ListAtv: React.FC = () => {
     
         fetchAtividadeById()
       }
-    }, [atividades])
+    }, [])
   
 
   
