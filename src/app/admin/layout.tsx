@@ -12,6 +12,7 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar"
 import { supabase } from "@/lib/supabase"
+import { ThemeProvider } from "@/components/theme-provider"
 
 // Fontes
 const geistSans = Geist({
@@ -24,16 +25,13 @@ const geistMono = Geist_Mono({
 })
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
-  const [theme, setTheme] = useState<string>("light")
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [notifications, setNotifications] = useState<
     { id: string; texto: string; link: string; visto?: boolean; created_at: string }[]
   >([])
 
   useEffect(() => {
-    const savedTheme = localStorage.getItem("theme") || "light"
-    setTheme(savedTheme)
-    document.body.classList.toggle("dark", savedTheme === "dark")
+
 
     const fetchNotifications = async () => {
       const userId = localStorage.getItem("user_id")
@@ -110,7 +108,18 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   }
 
   return (
+    
+    <html lang="en" suppressHydrationWarning>
+    <head />
+    <body>
+    <ThemeProvider
+            attribute="class"
+            defaultTheme="system"
+            enableSystem
+            disableTransitionOnChange
+          >
     <div className={`${geistSans.variable} ${geistMono.variable}`}>
+      
       <SidebarProvider>
         <AppSidebar />
         <SidebarInset>
@@ -131,7 +140,9 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
               </div>
             </div>
           </header>
+         
           {children}
+          
         </SidebarInset>
       </SidebarProvider>
 
@@ -146,6 +157,10 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           clearAll={handleClearNotifications}
         />
       )}
+      
     </div>
+    </ThemeProvider>
+    </body>
+    </html>
   )
 }
