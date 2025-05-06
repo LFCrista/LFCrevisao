@@ -1,32 +1,13 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { Sun, Moon } from "lucide-react"
+import { ModeToggle } from "@/components/mode-toggle";
 
-
-import {
-  AlertDialog,
-  AlertDialogTrigger,
-  AlertDialogContent,
-  AlertDialogHeader,
-  AlertDialogFooter,
-  AlertDialogTitle,
-  AlertDialogDescription,
-  AlertDialogAction,
-  AlertDialogCancel,
-} from "@/components/ui/alert-dialog"
 
 
 import {
-  BadgeCheck,
-  Bell,
-  ChevronsUpDown,
-  CreditCard,
   LogOut,
-  Sparkles,
-  CircleArrowRight,
-  CircleX,
-  X,
+ 
 } from "lucide-react"
 
 import { supabase } from "@/lib/supabase"
@@ -49,8 +30,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar"
-import { createPortal } from "react-dom"
-import Link from "next/link"
+
 
 
 
@@ -64,13 +44,7 @@ export function NavUser({
   }
 }) {
   const { isMobile } = useSidebar()
-  const [theme, setTheme] = useState<string>("light")
-  const [isModalOpen, setIsModalOpen] = useState(false)
-  const [notifications, setNotifications] = useState<
-    { id: string; texto: string; link: string; visto?: boolean }[]
-  >([])
 
-  const notificationRef = useRef<HTMLDivElement>(null)
 
   const initials = getInitials(user.name)
 
@@ -109,30 +83,7 @@ export function NavUser({
     return firstInitial + lastInitial;
   }
   
-  useEffect(() => {
-    const savedTheme = localStorage.getItem("theme") as "light" | "dark" | null
-    const initialTheme = savedTheme || "light"
-    setTheme(initialTheme)
-    document.documentElement.setAttribute("data-theme", initialTheme)
-  }, [])
 
- 
-
-  const toggleTheme = () => {
-    const newTheme = theme === "light" ? "dark" : "light";
-    
-    // Atualizar o tema no estado
-    setTheme(newTheme);
-  
-    // Salvar a escolha do tema no localStorage
-    localStorage.setItem("theme", newTheme);
-  
-    // Atualizar o atributo do elemento <html> para aplicar o tema
-    document.documentElement.setAttribute("data-theme", newTheme);
-  
-    // Recarregar a página para aplicar a mudança de tema imediatamente
-    window.location.reload();
-  };
   
   
 
@@ -178,10 +129,9 @@ export function NavUser({
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuGroup>
-              <DropdownMenuItem onClick={toggleTheme}>
-  {theme === "light" ? <Sun /> : <Moon />}
-  Mudar para {theme === "light" ? "Modo Escuro" : "Modo Claro"}
-</DropdownMenuItem>
+
+              <ModeToggle />
+
 <DropdownMenuSeparator />
               </DropdownMenuGroup>
               
