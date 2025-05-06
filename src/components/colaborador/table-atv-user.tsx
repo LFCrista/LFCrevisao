@@ -21,6 +21,7 @@ import type { Status } from "./combobox-status"
 import ArquivosDownload from "@/components/colaborador/arquivos-download"
 import FeitosUpload from "@/components/colaborador/feitos-upload"
 import { CalendarPrazo } from "./calendar-prazo"
+import { useRouter } from "next/navigation"
 
 
 interface Atividade {
@@ -106,6 +107,7 @@ const createNotifications = async (
 
 
 const ListAtv: React.FC = () => {
+  const router = useRouter()
   const [atividades, setAtividades] = React.useState<Atividade[]>([])
   const [usuarios, setUsuarios] = React.useState<Map<string, string>>(new Map())
   const [loading, setLoading] = React.useState<boolean>(true)
@@ -128,6 +130,45 @@ const ListAtv: React.FC = () => {
       setOriginalObsEnvio(obs)
     }
   }, [selectedAtividade])
+
+
+  React.useEffect(() => {
+      const params = new URLSearchParams(window.location.search)
+      const atividadeId = params.get("atividade")
+    
+      if (!atividadeId) return
+    
+      const atividadeLocal = atividades.find((a) => a.id === atividadeId)
+    
+      if (atividadeLocal) {
+        setSelectedAtividade(atividadeLocal)
+        setIsSheetOpen(true)
+      } else {
+        // Busca a atividade no Supabase caso não esteja nas atividades carregadas
+        const fetchAtividadeById = async () => {
+          const { data, error } = await supabase
+            .from("atividades")
+            .select("*")
+            .eq("id", atividadeId)
+            .single()
+    
+          if (error) {
+            console.error("Erro ao buscar atividade por ID:", error)
+            return
+          }
+     
+  
+          
+    
+          if (data) {
+            setSelectedAtividade(data)
+            setIsSheetOpen(true)
+          }
+        }
+    
+        fetchAtividadeById()
+      }
+    }, [atividades])
   
 
   
@@ -293,6 +334,7 @@ const ListAtv: React.FC = () => {
   const handleTitleClick = (atividade: Atividade) => {
     setSelectedAtividade(atividade)
     setIsSheetOpen(true)
+    router.push(`/feed?atividade=${atividade.id}`)
   }
 
   const handleFinalizar = async () => {
@@ -490,6 +532,7 @@ const ListAtv: React.FC = () => {
 
       {/* Menu lateral (Sheet) para editar a atividade */}
       <Sheet open={isSheetOpen} onOpenChange={(open) => {
+        if (!open) router.replace("/feed")
   if (!open && selectedAtividade && obsEnvio !== originalObsEnvio) {
     supabase
       .from("atividades")

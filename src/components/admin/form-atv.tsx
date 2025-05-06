@@ -208,7 +208,7 @@ export function FormAtv() {
       {
         user_id: userIdToSend,
         texto: "📌Nova atividade para você!!",
-        link: `https://lfc-revisao.vercel.app/feed/${activityId}`,
+        link: `/feed?atividade=${activityId}`,
         visto: false,
         created_at: new Date().toISOString(),
       },
