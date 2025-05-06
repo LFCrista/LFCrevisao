@@ -17,6 +17,7 @@ import { DatePicker } from "@/components/admin/date-picker"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription } from "@/components/ui/alert-dialog";
 import ArquivosAtv from "@/components/admin/arquivos-atv"
 import FeitosAtv from "@/components/admin/feitos-atv"
+import { useSearchParams } from 'next/navigation'
 
 
 interface Atividade {
@@ -52,7 +53,7 @@ const ListAtv: React.FC = () => {
   const [isSaving, setIsSaving] = React.useState(false); 
   const [baixadoChecked, setBaixadoChecked] = React.useState<boolean>(false);
   const [selectedAtividadeId, setSelectedAtividadeId] = React.useState<string | null>(null);
-  
+  const searchParams = useSearchParams()
 
   const ITEMS_PER_PAGE = 10
 
@@ -207,21 +208,49 @@ const ListAtv: React.FC = () => {
     
 
     const atividadesOrdenadas = [...filtradas].sort((a, b) => {
-      const prioridade = (status: string) =>
-        status === "Pendente" || status === "Em Progresso" ? 0 : 1
-
-      const prioridadeA = prioridade(a.status)
-      const prioridadeB = prioridade(b.status)
-
+      // 1. Atividades não baixadas vêm primeiro
+      if (a.baixado !== b.baixado) {
+        return a.baixado ? 1 : -1
+      }
+    
+      // 2. Prioridade de status: Pendente/Em Progresso < Atrasada < Concluída
+      const prioridadeStatus = (status: string) => {
+        switch (status) {
+          case "Pendente":
+          case "Em Progresso":
+            return 0
+          case "Atrasada":
+            return 1
+          case "Concluída":
+            return 2
+          default:
+            return 3
+        }
+      }
+    
+      const prioridadeA = prioridadeStatus(a.status)
+      const prioridadeB = prioridadeStatus(b.status)
+    
       if (prioridadeA !== prioridadeB) {
         return prioridadeA - prioridadeB
       }
-
+    
+      // 3. Para Concluídas, ordenar por entrega mais recente
+      if (a.status === "Concluída" && b.status === "Concluída") {
+        const entregaA = a.entrega_date ? new Date(a.entrega_date).getTime() : 0
+        const entregaB = b.entrega_date ? new Date(b.entrega_date).getTime() : 0
+        return entregaB - entregaA
+      }
+    
+      // 4. Ordenar por data de fim mais próxima (menor data primeiro)
       const endDateA = a.end_date ? new Date(a.end_date).getTime() : Infinity
       const endDateB = b.end_date ? new Date(b.end_date).getTime() : Infinity
-
+    
       return endDateA - endDateB
     })
+    
+    
+    
 
     const start = (page - 1) * ITEMS_PER_PAGE
     const end = start + ITEMS_PER_PAGE
@@ -254,45 +283,37 @@ const ListAtv: React.FC = () => {
   }, [currentPage, searchTerm, selectedUser])
 
   React.useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-    const atividadeId = params.get("atividade")
-  
-    if (!atividadeId) return
-  
-    const atividadeLocal = atividades.find((a) => a.id === atividadeId)
-  
-    if (atividadeLocal) {
-      setSelectedAtividade(atividadeLocal)
-      setIsSheetOpen(true)
-    } else {
-      // Busca a atividade no Supabase caso não esteja nas atividades carregadas
-      const fetchAtividadeById = async () => {
-        const { data, error } = await supabase
-          .from("atividades")
-          .select("*")
-          .eq("id", atividadeId)
-          .single()
-  
-        if (error) {
-          console.error("Erro ao buscar atividade por ID:", error)
-          return
-        }
+     const atividadeId = searchParams?.get("atividade")
         
-
-        
-  
-        if (data) {
-          setSelectedAtividade(data)
+        if (!atividadeId) return
+    
+        const atividadeLocal = atividades.find((a) => a.id === atividadeId)
+    
+        if (atividadeLocal) {
+          setSelectedAtividade(atividadeLocal)
           setIsSheetOpen(true)
+        } else {
+          const fetchAtividadeById = async () => {
+            const { data, error } = await supabase
+              .from("atividades")
+              .select("*")
+              .eq("id", atividadeId)
+              .single()
+    
+            if (error) {
+              console.error("Erro ao buscar atividade por ID:", error)
+              return
+            }
+    
+            if (data) {
+              setSelectedAtividade(data)
+              setIsSheetOpen(true)
+            }
+          }
+    
+          fetchAtividadeById()
         }
-      }
-
-      
-  
-      fetchAtividadeById()
-      
-    }
-  }, [])
+      }, [searchParams, atividades])
   
   
 

@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, Suspense } from 'react'
 import TableAtvUser from '@/components/colaborador/table-atv-user'
 
 export default function TestePage() {
@@ -9,7 +9,9 @@ export default function TestePage() {
   return (
     <main className="container mx-auto p-4">
       <h1 className="text-2xl font-bold my-4">Minhas Atividades</h1>
-      <TableAtvUser />
+      <Suspense fallback={<div>Carregando atividades...</div>}>
+        <TableAtvUser />
+      </Suspense>
     </main>
   )
 }
