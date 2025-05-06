@@ -1,11 +1,5 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
-import { ModeToggle } from "@/components/mode-toggle";
-
-
-
-
 import {
   LogOut,
 } from "lucide-react"
@@ -44,7 +38,6 @@ export function NavUser({
   }
 }) {
   const { isMobile } = useSidebar()
-  const [theme, setTheme] = useState<string>("light")
 
 
 
@@ -126,10 +119,7 @@ export function NavUser({
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuGroup>
-              <ModeToggle />
-<DropdownMenuSeparator />
-              </DropdownMenuGroup>
+             
               
            
               <DropdownMenuItem onClick={handleLogout}>

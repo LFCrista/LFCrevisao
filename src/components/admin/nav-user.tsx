@@ -1,9 +1,5 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
-import { ModeToggle } from "@/components/mode-toggle";
-
-
 
 import {
   LogOut,
@@ -128,12 +124,7 @@ export function NavUser({
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuGroup>
-
-              <ModeToggle />
-
-<DropdownMenuSeparator />
-              </DropdownMenuGroup>
+              
               
               <DropdownMenuItem onClick={handleLogout}>
                 <LogOut />

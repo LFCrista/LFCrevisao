@@ -5,6 +5,7 @@ import { Geist, Geist_Mono } from "next/font/google"
 import { AppSidebar } from "@/components/admin/app-sidebar"
 import { Separator } from "@/components/ui/separator"
 import { NotificationModal } from "@/components/admin/notification-modal"
+import { ModeToggle } from "@/components/mode-toggle";
 import { Bell } from "lucide-react"
 import {
   SidebarInset,
@@ -123,22 +124,31 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       <SidebarProvider>
         <AppSidebar />
         <SidebarInset>
-          <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
-            <div className="flex items-center gap-2 px-4">
-              <SidebarTrigger className="-ml-1" />
-              <Separator
-                orientation="vertical"
-                className="mr-2 data-[orientation=vertical]:h-4"
-              />
-              <div className="relative cursor-pointer" onClick={openModal}>
-                <Bell className="w-4.5" />
-                {notifications.some((n) => !n.visto) && (
-                  <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-600 text-[10px] text-white font-bold">
-                    {notifications.filter((n) => !n.visto).length}
-                  </span>
-                )}
+          <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12 justify-between">
+            
+                <div className="flex items-center justify-between w-full">
+                  <div className="flex items-center gap-2 px-4">
+                    <SidebarTrigger className="-ml-1" />
+                    <Separator
+                    orientation="vertical"
+                    className="mr-2 data-[orientation=vertical]:h-4"
+                  />
+              
+              
+                  <div className="relative cursor-pointer" onClick={openModal}>
+                    <Bell className="w-4.5" />
+                    {notifications.some((n) => !n.visto) && (
+                      <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-600 text-[10px] text-white font-bold">
+                        {notifications.filter((n) => !n.visto).length}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="gap-2 px-4">
+                <ModeToggle />
+                </div>
+                
               </div>
-            </div>
           </header>
          
           {children}
