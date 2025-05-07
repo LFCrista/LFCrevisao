@@ -54,6 +54,10 @@ const ListAtv: React.FC = () => {
   const [baixadoChecked, setBaixadoChecked] = React.useState<boolean>(false);
   const [selectedAtividadeId, setSelectedAtividadeId] = React.useState<string | null>(null);
   const searchParams = useSearchParams()
+  const [isUncheckDialogOpen, setIsUncheckDialogOpen] = React.useState(false); // para desmarcar checkbox
+  const [isSaveDialogOpen, setIsSaveDialogOpen] = React.useState(false); // para salvar alterações
+
+  
 
   const ITEMS_PER_PAGE = 10
 
@@ -69,26 +73,21 @@ const ListAtv: React.FC = () => {
     })
   }
 
-  const handleCheckboxChange = async (atividadeId: string, checked: boolean) => {
-  // Atualiza o estado local para refletir a mudança
-  const updatedAtividades = atividades.map((atividade) => 
-    atividade.id === atividadeId 
-      ? { ...atividade, baixado: checked } 
-      : atividade
-  );
-  setAtividades(updatedAtividades);
-
-  // Agora, atualiza o banco de dados
-  const { error } = await supabase
-    .from('atividades')
-    .update({ baixado: checked })
-    .eq('id', atividadeId);
-
-  if (error) {
-    console.error('Erro ao atualizar a atividade:', error);
-    alert('Erro ao atualizar a atividade.');
-  }
-};
+  const handleCheckboxChange = (atividadeId: string, checked: boolean) => {
+    const atividade = atividades.find((a) => a.id === atividadeId);
+    if (!atividade) return;
+  
+    if (atividade.baixado && !checked) {
+      // O usuário está desmarcando → abrir confirmação
+      setSelectedAtividadeId(atividadeId);
+      setBaixadoChecked(false);
+      setIsUncheckDialogOpen(true);
+    } else {
+      // Marca diretamente sem confirmação
+      updateBaixado(atividadeId, checked);
+    }
+  };
+  
 
   
 
@@ -109,11 +108,13 @@ const ListAtv: React.FC = () => {
 
   // Função para confirmar a alteração e atualizar o estado de 'baixado'
   const handleConfirmChange = () => {
-    if (selectedAtividadeId) {
-      updateBaixado(selectedAtividadeId, baixadoChecked);
-      setIsAlertDialogOpen(false); // Fecha o AlertDialog
+    if (selectedAtividadeId !== null) {
+      updateBaixado(selectedAtividadeId, false);
+      setIsUncheckDialogOpen(false);
     }
   };
+  
+  
 
   const fetchAtividades = async (page: number) => {
     const { data: atividadesData, error } = await supabase
@@ -480,18 +481,21 @@ const ListAtv: React.FC = () => {
       </Table>
 
        {/* AlertDialog para confirmar a desmarcação */}
-       <AlertDialog open={isAlertDialogOpen} onOpenChange={setIsAlertDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Confirmar desmarcação</AlertDialogTitle>
-            <AlertDialogDescription>
-              Você tem certeza de que deseja desmarcar este checkbox?
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogAction onClick={handleConfirmChange}>Sim, desmarcar</AlertDialogAction>
-          <AlertDialogCancel onClick={() => setIsAlertDialogOpen(false)}>Cancelar</AlertDialogCancel>
-        </AlertDialogContent>
-      </AlertDialog>
+       <AlertDialog open={isUncheckDialogOpen} onOpenChange={setIsUncheckDialogOpen}>
+  <AlertDialogContent>
+    <AlertDialogHeader>
+      <AlertDialogTitle>Confirmar desmarcação</AlertDialogTitle>
+      <AlertDialogDescription>
+        Tem certeza de que deseja desmarcar o checkbox de "baixado"?
+      </AlertDialogDescription>
+    </AlertDialogHeader>
+    <AlertDialogAction onClick={handleConfirmChange}>Sim, desmarcar</AlertDialogAction>
+    <AlertDialogCancel onClick={() => setIsUncheckDialogOpen(false)}>Cancelar</AlertDialogCancel>
+  </AlertDialogContent>
+</AlertDialog>
+
+
+
 
       <Pagination>
         <PaginationContent>
