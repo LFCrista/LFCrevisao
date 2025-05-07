@@ -589,6 +589,34 @@ const ListAtv: React.FC = () => {
         </div>
       </div>
 
+      {/* Status da atividade */}
+<div className="space-y-2">
+  <label className="block text-sm font-medium">Status</label>
+  <Badge variant={getBadgeVariant(selectedAtividade.status)}>
+    {selectedAtividade.status}
+  </Badge>
+</div>
+
+{/* Checkbox editável para "Baixado" */}
+<div className="flex items-center space-x-2">
+  <input
+    type="checkbox"
+    id="baixado"
+    checked={selectedAtividade.baixado}
+    onChange={(e) =>
+      setSelectedAtividade({
+        ...selectedAtividade,
+        baixado: e.target.checked,
+      })
+    }
+  />
+  <label htmlFor="baixado" className="text-sm font-medium">
+    Baixado
+  </label>
+</div>
+
+
+
     {/* Data Início */}
     <div className="space-y-2">
       <label htmlFor="start_date" className="block text-sm font-medium">Data de Início</label>
