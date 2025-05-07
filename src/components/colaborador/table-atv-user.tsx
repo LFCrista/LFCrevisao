@@ -34,7 +34,8 @@ interface Atividade {
   entrega_date: string | null
   status: string
   user_id: string
-  obs_envio?: string // <-- adiciona aqui
+  obs_envio?: string
+  justificativa?: string // <-- adiciona aqui
 }
 
 interface User {
@@ -123,14 +124,23 @@ const ListAtv: React.FC = () => {
   const [obsEnvio, setObsEnvio] = React.useState<string>("")
   const [originalObsEnvio, setOriginalObsEnvio] = React.useState("")
   const searchParams = useSearchParams()
+  const [justificativa, setJustificativa] = React.useState("");
+  const [originalJustificativa, setOriginalJustificativa] = React.useState<string>("")
+  const [showAtrasadaDialog, setShowAtrasadaDialog] = React.useState(false);
+  const [pendingSheetAtividade, setPendingSheetAtividade] = React.useState<Atividade | null>(null);
 
 
+  const isFinalizarEnabled = selectedAtividade?.status === "Atrasada" ? !!justificativa : true;
   React.useEffect(() => {
     if (selectedAtividade) {
       const obs = selectedAtividade.obs_envio || ""
       setObsEnvio(obs)
       setOriginalObsEnvio(obs)
+      const justificativaValor = (selectedAtividade as any).justificativa || ""
+      setJustificativa(justificativaValor)
+      setOriginalJustificativa(justificativaValor)
     }
+    
   }, [selectedAtividade])
 
 
@@ -161,6 +171,29 @@ const ListAtv: React.FC = () => {
           setSelectedAtividade(data)
           setIsSheetOpen(true)
         }
+      }
+
+      const abrirSheetComAlerta = (atividade: Atividade) => {
+        setSelectedAtividade(atividade)
+        setIsSheetOpen(true)
+        if (atividade.status === "Atrasada") {
+          setIsAlertDialogOpen(true)
+        }
+      }
+    
+      if (atividadeLocal) {
+        abrirSheetComAlerta(atividadeLocal)
+      } else {
+        const fetchAtividadeById = async () => {
+          const { data, error } = await supabase
+            .from("atividades")
+            .select("*")
+            .eq("id", atividadeId)
+            .single()
+    
+          if (data) abrirSheetComAlerta(data)
+        }
+        fetchAtividadeById()
       }
 
       fetchAtividadeById()
@@ -211,44 +244,49 @@ const ListAtv: React.FC = () => {
       filtradas = filtradas.filter((a) => a.status === selectedStatus);
     }
   
-    const atividadesComStatusAtualizado = await Promise.all(filtradas.map(async (atividade) => {
-      if (atividade.end_date) {
-        const dataAtual = new Date();
-        const dataFim = new Date(atividade.end_date);
-  
-        if (atividade.concluida) {
-          if (atividade.status !== "Concluída") {
-            const { error: updateError } = await supabase
-              .from("atividades")
-              .update({ status: "Concluída" })
-              .eq("id", atividade.id);
-  
-            if (!updateError) atividade.status = "Concluída";
-          }
-        } else {
-          if (dataFim >= dataAtual && atividade.feito_url != null && atividade.status !== "Em Progresso") {
-            const { error: updateError } = await supabase
-              .from("atividades")
-              .update({ status: "Em Progresso" })
-              .eq("id", atividade.id);
-            if (!updateError) atividade.status = "Em Progresso";
-          } else if (dataFim >= dataAtual && atividade.feito_url == null && atividade.status !== "Pendente") {
-            const { error: updateError } = await supabase
-              .from("atividades")
-              .update({ status: "Pendente" })
-              .eq("id", atividade.id);
-            if (!updateError) atividade.status = "Pendente";
-          } else if (dataFim < dataAtual && atividade.status !== "Atrasada") {
-            const { error: updateError } = await supabase
-              .from("atividades")
-              .update({ status: "Atrasada" })
-              .eq("id", atividade.id);
-            if (!updateError) atividade.status = "Atrasada";
-          }
-        }
-      }
+    const atividadesComStatusAtualizado = await Promise.all(
+  filtradas.map(async (atividade) => {
+    if (!atividade.end_date) return atividade;
+
+    const agora = new Date();
+    const dataFim = new Date(atividade.end_date);
+
+    // Não atualiza se já estiver como "Concluída" ou "Fora de Prazo"
+    if (atividade.status === "Concluída" || atividade.status === "Fora de Prazo") {
       return atividade;
-    }));
+    }
+
+    let novoStatus = atividade.status;
+
+    if (dataFim < agora) {
+      novoStatus = "Atrasada";
+    } else if (atividade.feito_url) {
+      novoStatus = "Em Progresso";
+    } else {
+      novoStatus = "Pendente";
+    }
+
+    // Atualiza apenas se o status mudou
+    if (novoStatus !== atividade.status) {
+      const { error: updateError } = await supabase
+        .from("atividades")
+        .update({ status: novoStatus })
+        .eq("id", atividade.id);
+
+      if (!updateError) {
+        atividade.status = novoStatus;
+      } else {
+        console.error(`Erro ao atualizar status da atividade ${atividade.id}:`, updateError.message);
+      }
+    }
+
+    return atividade;
+  })
+);
+
+
+
+    
 
     const handleTitleClick = (atividade: Atividade) => {
       setSelectedAtividade(atividade)  // Atualiza a atividade selecionada
@@ -329,10 +367,16 @@ const ListAtv: React.FC = () => {
   }
 
   const handleTitleClick = (atividade: Atividade) => {
-    setSelectedAtividade(atividade)
-    setIsSheetOpen(true)
-    router.push(`/feed?atividade=${atividade.id}`)
-  }
+    if (atividade.status === "Atrasada") {
+      setPendingSheetAtividade(atividade); // Salva atividade para abrir depois
+      setShowAtrasadaDialog(true);         // Mostra o alerta
+    } else {
+      setSelectedAtividade(atividade);
+      setIsSheetOpen(true);
+      router.push(`/feed?atividade=${atividade.id}`);
+    }
+  };
+  
 
   const handleFinalizar = async () => {
     if (!selectedAtividade || !selectedAtividade.id) {
@@ -342,14 +386,29 @@ const ListAtv: React.FC = () => {
   
     const entregaDate = new Date().toISOString();
   
-    // Atualiza no Supabase
+    const updateData: any = {
+      concluida: true,
+      entrega_date: entregaDate,
+      obs_envio: obsEnvio,
+    };
+  
+    const estaAtrasada = selectedAtividade.status === "Atrasada";
+
+if (estaAtrasada) {
+  if (!justificativa || justificativa.trim() === "") {
+    alert("Para finalizar uma atividade atrasada, é necessário preencher a justificativa.");
+    return;
+  }
+  updateData.status = "Fora de Prazo";
+  updateData.justificativa = justificativa;
+} else {
+  updateData.status = "Concluída";
+}
+
+  
     const { error } = await supabase
       .from("atividades")
-      .update({
-        concluida: true,
-        status: "Concluída",
-        entrega_date: entregaDate
-      })
+      .update(updateData)
       .eq("id", selectedAtividade.id);
   
     if (error) {
@@ -357,7 +416,7 @@ const ListAtv: React.FC = () => {
       return;
     }
   
-    // Buscar nome do usuário
+    // Enviar notificação + email
     const userId = localStorage.getItem("user_id");
     const { data: userData, error: userError } = await supabase
       .from("users")
@@ -372,7 +431,6 @@ const ListAtv: React.FC = () => {
   
     const nome_usuario = userData.name;
   
-    // Enviar e-mail via API
     try {
       const response = await fetch("/api/send-concAtividade-email", {
         method: "POST",
@@ -380,26 +438,33 @@ const ListAtv: React.FC = () => {
         body: JSON.stringify({
           titulo_atividade: selectedAtividade.titulo,
           obs_envio: obsEnvio,
+          justificativa: updateData.status === "Fora de Prazo" ? justificativa : "",
           atividadeId: selectedAtividade.id,
-          nome_usuario: nome_usuario,
+          nome_usuario,
         }),
       });
   
       const result = await response.json();
       if (!result.success) {
         console.error("Erro ao enviar e-mail:", result.error);
-      } else {
-        console.log("E-mail enviado com sucesso.");
       }
     } catch (err) {
       console.error("Erro na requisição do e-mail:", err);
     }
   
-    // Criar notificação e fechar modal
-    await createNotifications(selectedAtividade.id, selectedAtividade.titulo, "finalizacao");
+    await createNotifications(
+      selectedAtividade.id,
+      selectedAtividade.titulo,
+      "finalizacao"
+    );
+  
     setIsSheetOpen(false);
     window.location.reload();
   };
+  
+  
+  
+  
   
 
   
@@ -527,115 +592,189 @@ const ListAtv: React.FC = () => {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Menu lateral (Sheet) para editar a atividade */}
-      <Sheet open={isSheetOpen} onOpenChange={(open) => {
-        if (!open) router.replace("/feed")
-  if (!open && selectedAtividade && obsEnvio !== originalObsEnvio) {
-    supabase
-      .from("atividades")
-      .update({ obs_envio: obsEnvio })
-      .eq("id", selectedAtividade.id)
-      .then(({ error }) => {
-        if (error) console.error("Erro ao salvar observações:", error)
-        else console.log("Observações atualizadas com sucesso.")
+      <AlertDialog open={showAtrasadaDialog} onOpenChange={setShowAtrasadaDialog}>
+  <AlertDialogContent>
+    <AlertDialogHeader>
+      <AlertDialogTitle>Atividade Atrasada</AlertDialogTitle>
+      <AlertDialogDescription>
+        Esta atividade está <strong>atrasada</strong>. Para enviar, é necessário preencher o campo <strong>justificativa</strong> e fazer o upload dos arquivos realizados.
+      </AlertDialogDescription>
+    </AlertDialogHeader>
+    <AlertDialogAction
+      onClick={() => {
+        if (pendingSheetAtividade) {
+          setSelectedAtividade(pendingSheetAtividade);
+          router.push(`/feed?atividade=${pendingSheetAtividade.id}`);
+        }
+        setIsSheetOpen(true);
+        setShowAtrasadaDialog(false);
+        setPendingSheetAtividade(null);
+      }}
+    >
+      Entendi
+    </AlertDialogAction>
+  </AlertDialogContent>
+</AlertDialog>
 
-        createNotifications(selectedAtividade.id, selectedAtividade.titulo, 'observacao');
-      })
-  }
-  setIsSheetOpen(open)
-}}>
+
+      {/* Menu lateral (Sheet) para editar a atividade */}
+      <Sheet
+  open={isSheetOpen}
+  onOpenChange={async (open) => {
+    if (!open) router.replace("/feed");
+
+    if (!open && selectedAtividade) {
+      const updates: any = {};
+
+      if (obsEnvio !== originalObsEnvio) {
+        updates.obs_envio = obsEnvio;
+      }
+
+      if (justificativa !== originalJustificativa) {
+        updates.justificativa = justificativa;
+      }
+
+      if (Object.keys(updates).length > 0) {
+        const { error } = await supabase
+          .from("atividades")
+          .update(updates)
+          .eq("id", selectedAtividade.id);
+
+        if (error) {
+          console.error("Erro ao salvar alterações:", error);
+        } else {
+          console.log("Alterações salvas com sucesso.");
+
+          if (updates.obs_envio) {
+            createNotifications(selectedAtividade.id, selectedAtividade.titulo, "observacao");
+          }
+        }
+      }
+    }
+
+    if (open && selectedAtividade?.status === "Atrasada") {
+      setShowAtrasadaDialog(true); // exibe o alert-dialog antes de abrir o sheet
+      return; // impede o sheet de abrir agora
+    }
+
+    setIsSheetOpen(open);
+  }}
+>
+
+
 
 
 <SheetContent
   side="right"
-  className="overflow-y-auto "  // Adiciona a classe para rolagem
+  className="overflow-y-auto"
 >
-          <SheetHeader>
-            <SheetTitle>Editar Atividade</SheetTitle>
-            <SheetDescription>Alterar os dados da atividade</SheetDescription>
-          </SheetHeader>
+  <SheetHeader>
+    <SheetTitle>Editar Atividade</SheetTitle>
+    <SheetDescription>Alterar os dados da atividade</SheetDescription>
+  </SheetHeader>
 
-          {selectedAtividade && (
-  <div className="space-y-4 p-4">
-  <div className="space-y-1">
-    <p className="text-sm font-medium text-muted-foreground">Título</p>
-    <p className="text-base font-semibold">{selectedAtividade.titulo}</p>
-  </div>
+  {selectedAtividade && (
+    <div className="space-y-4 p-4">
+      {/* Título */}
+      <div className="space-y-1">
+        <p className="text-sm font-medium text-muted-foreground">Título</p>
+        <p className="text-base font-semibold">{selectedAtividade.titulo}</p>
+      </div>
 
-  <div className="space-y-1">
-    <p className="text-sm font-medium text-muted-foreground">Descrição</p>
-    <p className="text-base whitespace-pre-wrap">{selectedAtividade.descricao || "---"}</p>
-  </div>
+      {/* Descrição */}
+      <div className="space-y-1">
+        <p className="text-sm font-medium text-muted-foreground">Descrição</p>
+        <p className="text-base whitespace-pre-wrap">{selectedAtividade.descricao || "---"}</p>
+      </div>
 
-  <div className="space-y-1">
-    <p className="text-sm font-medium text-muted-foreground">Data de Início</p>
-    <p className="text-base">{formatDate(selectedAtividade.start_date)}</p>
-  </div>
+      {/* Data de Início */}
+      <div className="space-y-1">
+        <p className="text-sm font-medium text-muted-foreground">Data de Início</p>
+        <p className="text-base">{formatDate(selectedAtividade.start_date)}</p>
+      </div>
 
-  <div className="space-y-1">
-    <p className="text-sm font-medium text-muted-foreground">Prazo</p>
-    <p className="text-base">{formatDate(selectedAtividade.end_date)}</p>
-  </div>
+      {/* Prazo */}
+      <div className="space-y-1">
+        <p className="text-sm font-medium text-muted-foreground">Prazo</p>
+        <p className="text-base">{formatDate(selectedAtividade.end_date)}</p>
+      </div>
 
-  <CalendarPrazo 
-    startDate={selectedAtividade.start_date} 
-    endDate={selectedAtividade.end_date} 
-  />
+      {/* Calendário */}
+      <CalendarPrazo 
+        startDate={selectedAtividade.start_date} 
+        endDate={selectedAtividade.end_date} 
+      />
 
-  <div className="space-x-2">
-    
-  {selectedAtividade.status !== "Concluída" && selectedAtividade.status !== "Atrasada" && (
-  <>
-    <ArquivosDownload atividadeId={selectedAtividade.id} />
-    <FeitosUpload 
-      atividadeId={selectedAtividade.id} 
-      isDisabled={false}  // Habilita o upload e remoção
-    />
-  </>
-)}
+      {/* Botões de Arquivos e Upload */}
+      <div className="space-x-2">
+        {selectedAtividade.status !== "Concluída" && selectedAtividade.status !== "Fora de Prazo" && (
+          <>
+            <ArquivosDownload atividadeId={selectedAtividade.id} />
+            <FeitosUpload 
+              atividadeId={selectedAtividade.id} 
+              isDisabled={false} // Habilita o upload e remoção
+            />
+          </>
+        )}
 
-{(selectedAtividade.status === "Concluída" || selectedAtividade.status === "Atrasada") && (
-  <>
-    <ArquivosDownload atividadeId={selectedAtividade.id} />
-    <FeitosUpload atividadeId={selectedAtividade.id} isDisabled={false} />
+        {(selectedAtividade.status === "Concluída" || selectedAtividade.status === "Fora de Prazo") && (
+          <>
+            <ArquivosDownload atividadeId={selectedAtividade.id} />
+            <FeitosUpload 
+              atividadeId={selectedAtividade.id} 
+              isDisabled={true} // Desabilita o upload e remoção quando concluído ou fora de prazo
+            />
+          </>
+        )}
+      </div>
 
-  </>
-)}
-</div>
+      {/* Justificativa do Atraso ou Fora de Prazo */}
+      {(selectedAtividade?.status === "Atrasada" || selectedAtividade?.status === "Fora de Prazo") && (
+        <div className="space-y-2">
+          <label className="block text-sm font-medium text-muted-foreground">
+            Justificativa {selectedAtividade.status === "Fora de Prazo" ? "do Fora de Prazo" : "do Atraso"} <span className="text-red-500">*</span>
+          </label>
+          <textarea
+            className="w-full border rounded-md p-2 h-32 overflow-auto text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary"
+            value={justificativa}
+            onChange={(e) => setJustificativa(e.target.value)}
+            placeholder="Descreva o motivo do atraso ou fora de prazo..."
+            disabled={selectedAtividade.status === "Fora de Prazo"} // Desabilita a edição se o status for "Fora de Prazo"
+          />
+        </div>
+      )}
 
-<div className="space-y-2">
-  <label className="block text-sm font-medium text-muted-foreground">
-    Observações do envio
-  </label>
-  <textarea
-  className="w-full border rounded-md p-2 h-40 overflow-auto text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary"
-  value={obsEnvio}
-  onChange={(e) => setObsEnvio(e.target.value)}
-  placeholder="Digite suas observações aqui..."
-  disabled={selectedAtividade.status === "Concluída" || selectedAtividade.status === "Atrasada"} // Desabilita o campo de observações
-/>
+      {/* Observações do Envio */}
+      <div className="space-y-2">
+        <label className="block text-sm font-medium text-muted-foreground">
+          Observações do envio
+        </label>
+        <textarea
+          className="w-full border rounded-md p-2 h-40 overflow-auto text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary"
+          value={obsEnvio}
+          onChange={(e) => setObsEnvio(e.target.value)}
+          placeholder="Digite suas observações aqui..."
+          disabled={selectedAtividade.status === "Concluída" || selectedAtividade.status === "Fora de Prazo"} // Desabilita quando a atividade está concluída ou fora de prazo
+        />
+      </div>
+    </div>
+  )}
 
-</div>
-
-</div>
-
-)}
-
-<SheetFooter className="flex justify-center gap-4 p-4 mt-auto items-center">
-  <Button
-    variant="default"
-    size="sm"
-    className="w-50"
-    onClick={handleOpenAlertDialog}
-    disabled={isSaving || !selectedAtividade || selectedAtividade.status === "Concluída" || selectedAtividade.status === "Atrasada"} // Verifica se selectedAtividade não é null
-  >
-    Finalizar
-  </Button>
-</SheetFooter>
+  {/* Rodapé com botão */}
+  <SheetFooter className="flex justify-center gap-4 p-4 mt-auto items-center">
+    <Button
+      variant="default"
+      size="sm"
+      className="w-50"
+      onClick={handleOpenAlertDialog}
+      disabled={isSaving || !selectedAtividade || selectedAtividade.status === "Concluída" || selectedAtividade.status === "Fora de Prazo"} // Desabilita o botão quando a atividade está concluída ou fora de prazo
+    >
+      Finalizar
+    </Button>
+  </SheetFooter>
+</SheetContent>
 
 
-
-        </SheetContent>
       </Sheet>
     </div>
   )

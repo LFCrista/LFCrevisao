@@ -30,7 +30,8 @@ interface Atividade {
   status: string
   user_id: string
   baixado: boolean
-  obs_envio?: string // <-- adiciona isso
+  obs_envio?: string
+  justificativa?: string  // <-- adiciona isso
 }
 
 interface User {
@@ -134,70 +135,46 @@ const ListAtv: React.FC = () => {
       filtradas = filtradas.filter((a) => a.user_id === String(selectedUser.id))
     }
 
-    const atividadesComStatusAtualizado = await Promise.all(filtradas.map(async (atividade) => {
-      if (atividade.end_date) {
-        const dataAtual = new Date();
+    const atividadesComStatusAtualizado = await Promise.all(
+      filtradas.map(async (atividade) => {
+        if (!atividade.end_date) return atividade;
+    
+        const agora = new Date();
         const dataFim = new Date(atividade.end_date);
     
-        // Verifica as condições de status
-        if (atividade.concluida) {
-          // Se a atividade estiver concluída, o status é 'Concluída'
-          if (atividade.status !== "Concluída") {
-            const { error: updateError } = await supabase
-              .from("atividades")
-              .update({ status: "Concluída" })
-              .eq("id", atividade.id);
+        // Não atualiza se já estiver como "Concluída" ou "Fora de Prazo"
+        if (atividade.status === "Concluída" || atividade.status === "Fora de Prazo") {
+          return atividade;
+        }
     
-            if (updateError) {
-              console.error("Erro ao atualizar status para Concluída:", updateError);
-            } else {
-              atividade.status = "Concluída"; // Atualiza localmente após sucesso
-            }
-          }
+        let novoStatus = atividade.status;
+    
+        if (dataFim < agora) {
+          novoStatus = "Atrasada";
+        } else if (atividade.feito_url) {
+          novoStatus = "Em Progresso";
         } else {
-          // Se a data de término não passou e o feito_url estiver com um valor
-          if (dataFim >= dataAtual && atividade.feito_url != null && atividade.status !== "Em Progresso") {
-            const { error: updateError } = await supabase
-              .from("atividades")
-              .update({ status: "Em Progresso" })
-              .eq("id", atividade.id);
+          novoStatus = "Pendente";
+        }
     
-            if (updateError) {
-              console.error("Erro ao atualizar status para Em Progresso:", updateError);
-            } else {
-              atividade.status = "Em Progresso"; // Atualiza localmente após sucesso
-            }
-          }
-          // Se a data de término não passou e o feito_url for null
-          else if (dataFim >= dataAtual && atividade.feito_url == null && atividade.status !== "Pendente") {
-            const { error: updateError } = await supabase
-              .from("atividades")
-              .update({ status: "Pendente" })
-              .eq("id", atividade.id);
+        // Atualiza apenas se o status mudou
+        if (novoStatus !== atividade.status) {
+          const { error: updateError } = await supabase
+            .from("atividades")
+            .update({ status: novoStatus })
+            .eq("id", atividade.id);
     
-            if (updateError) {
-              console.error("Erro ao atualizar status para Pendente:", updateError);
-            } else {
-              atividade.status = "Pendente"; // Atualiza localmente após sucesso
-            }
-          }
-          // Se a data de término passou e a atividade não foi concluída, o status é 'Atrasada'
-          else if (dataFim < dataAtual && atividade.status !== "Atrasada") {
-            const { error: updateError } = await supabase
-              .from("atividades")
-              .update({ status: "Atrasada" })
-              .eq("id", atividade.id);
-    
-            if (updateError) {
-              console.error("Erro ao atualizar status para Atrasada:", updateError);
-            } else {
-              atividade.status = "Atrasada"; // Atualiza localmente após sucesso
-            }
+          if (!updateError) {
+            atividade.status = novoStatus;
+          } else {
+            console.error(`Erro ao atualizar status da atividade ${atividade.id}:`, updateError.message);
           }
         }
-      }
-      return atividade;
-    }));
+    
+        return atividade;
+      })
+    );
+    
 
     const handleTitleClick = (atividade: Atividade) => {
       setSelectedAtividade(atividade)  // Atualiza a atividade selecionada
@@ -410,6 +387,29 @@ const ListAtv: React.FC = () => {
     setSelectedAtividade(atividade);  // Atribui a atividade selecionada ao estado
   };
 
+  const calcularAtraso = (endDate: string | null, entregaDate: string | null) => {
+    if (!endDate || !entregaDate) return null;
+  
+    const end = new Date(endDate);
+    const entrega = new Date(entregaDate);
+  
+    if (entrega <= end) return null;
+  
+    const diffMs = entrega.getTime() - end.getTime();
+    const diffMin = Math.floor(diffMs / 60000);
+    const dias = Math.floor(diffMin / 1440); // 1440 = 60*24
+    const horas = Math.floor((diffMin % 1440) / 60);
+    const minutos = diffMin % 60;
+  
+    let resultado = '';
+    if (dias > 0) resultado += `${dias}d `;
+    if (horas > 0 || dias > 0) resultado += `${horas}h `;
+    resultado += `${minutos}min`;
+  
+    return resultado.trim();
+  };
+  
+
   return (
     <div>
       <div className="flex items-center justify-between gap-4 mb-4 ">
@@ -539,14 +539,14 @@ const ListAtv: React.FC = () => {
   if (!open) router.replace("/admin/atividades")
 }}>
 
-        <SheetContent side="right">
+        <SheetContent side="right" className="overflow-y-auto">
           <SheetHeader>
             <SheetTitle>Editar Atividade</SheetTitle>
             <SheetDescription>Alterar os dados da atividade</SheetDescription>
           </SheetHeader>
 
           {selectedAtividade && (
-  <div className="space-y-4 p-4">
+  <div className="space-y-4 p-4 ">
     {/* Título */}
     <div className="space-y-2">
       <label htmlFor="titulo" className="block text-sm font-medium">Título</label>
@@ -653,6 +653,34 @@ const ListAtv: React.FC = () => {
     </div>
   </div>
 )}
+
+{/* Tempo de atraso */}
+{selectedAtividade?.status === "Fora de Prazo" && selectedAtividade.end_date && selectedAtividade.entrega_date && (
+  <div className="space-y-2">
+    <label className="block text-sm font-medium">Tempo de Atraso</label>
+    <div className="p-2 border rounded-md text-sm bg-muted">
+    Atraso: {calcularAtraso(selectedAtividade.end_date, selectedAtividade.entrega_date)}
+    </div>
+  </div>
+)}
+
+{/* Campo de justificativa */}
+{selectedAtividade?.status === "Fora de Prazo" && selectedAtividade.justificativa && (
+  <div className="space-y-2">
+    <label htmlFor="justificativa" className="block text-sm font-medium">
+      Justificativa do Atraso
+    </label>
+    <div
+      id="justificativa"
+      style={{ whiteSpace: "pre-wrap" }} 
+      className="p-2 border rounded-md text-sm max-h-40 overflow-auto bg-muted"
+    >
+      {selectedAtividade.justificativa}
+    </div>
+  </div>
+)}
+  
+  {/* Observação do envio */} 
 
 {selectedAtividade && selectedAtividade.obs_envio && (
   <div className="space-y-2">
