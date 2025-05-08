@@ -39,6 +39,7 @@ export function PieChartCardTdsAtv() {
         let emProgresso = 0;
         let concluida = 0;
         let atrasada = 0;
+        let foraDePrazo = 0; // Adicionando a variável para "Fora de Prazo"
 
         data.forEach((atividade) => {
           switch (atividade.status) {
@@ -54,6 +55,10 @@ export function PieChartCardTdsAtv() {
             case "Atrasada":
               atrasada++;
               break;
+            case "Fora de Prazo":
+              foraDePrazo++;
+              break; // Adicionando o caso para "Fora de Prazo"
+
           }
         });
 
@@ -62,6 +67,7 @@ export function PieChartCardTdsAtv() {
           { name: "Em Progresso", value: emProgresso, fill: "#3b82f6" },
           { name: "Concluída", value: concluida, fill: "#22c55e" },
           { name: "Atrasada", value: atrasada, fill: "#ef4444" },
+          { name: "Fora de Prazo", value:foraDePrazo , fill: "#9e34eb" }, // Adicionando a cor para "Fora de Prazo"
         ];
 
         setChartData(formattedData);

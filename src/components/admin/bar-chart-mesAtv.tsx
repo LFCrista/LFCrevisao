@@ -26,6 +26,7 @@ const chartConfig = {
   "Em Progresso": { label: "Em Progresso", color: "#3b82f6" },
   "Concluída": { label: "Concluída", color: "#22c55e" },
   "Atrasada": { label: "Atrasada", color: "#ef4444" },
+  "Fora de Prazo": { label: "Fora de Prazo", color: "#9e34eb" }, // Adicionando o status "Fora de Prazo"
 } satisfies ChartConfig
 
 export function BarChartCardMesAtv() {
@@ -56,6 +57,7 @@ export function BarChartCardMesAtv() {
         "Em Progresso": 0,
         "Concluída": 0,
         "Atrasada": 0,
+        "Fora de Prazo": 0, // Adicionando o status "Fora de Prazo"
       };
 
       // Conta as atividades criadas no mês por status atual

@@ -25,7 +25,8 @@ export function ChartUser({ userId }: Props) {
     Pendente: "#FFEB3B",  // Amarelo para Pendente
     "Em Progresso": "#2196F3",  // Azul para Em Progresso
     Concluída: "#4CAF50",  // Verde para Concluída
-    Atrasada: "#F44336",  // Vermelho para Atrasada
+    Atrasada: "#F44336",
+    "Fora de Prazo": "#9e34eb"  // Vermelho para Atrasada
   }
 
   // Definir o gráfico de configuração baseado nos status
