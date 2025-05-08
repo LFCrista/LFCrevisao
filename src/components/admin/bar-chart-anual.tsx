@@ -28,7 +28,7 @@ import {
 } from "@/components/ui/chart"
 
 // Tipos de status disponíveis no banco de dados
-type StatusType = "Pendente" | "Em Progresso" | "Concluída" | "Atrasada"
+type StatusType = "Pendente" | "Em Progresso" | "Concluída" | "Atrasada" | "Fora de Prazo"
 
 // Tipagem para os dados do gráfico
 type ChartData = {
@@ -40,7 +40,7 @@ type ChartData = {
 // Configuração de cores e labels apenas para os status "Concluída" e "Atrasada"
 const chartConfig: Partial<Record<StatusType, { label: string; color: string }>> = {
   "Concluída": { label: "Concluída", color: "#22c55e" },
-  "Atrasada": { label: "Atrasada", color: "#ef4444" },
+  "Fora de Prazo": { label: "Fora de Prazo", color: "#9e34eb" }, // Adicionando o status "Fora de Prazo"
 }
 
 const monthLabels = [
@@ -55,6 +55,7 @@ export function BarChartCardAnual() {
       month,
       "Concluída": 0,
       "Atrasada": 0,
+      "Fora de Prazo": 0, // Adicionando o status "Fora de Prazo"
     }))
   )
 
@@ -80,6 +81,7 @@ export function BarChartCardAnual() {
         month,
         "Concluída": 0,
         "Atrasada": 0,
+        "Fora de Prazo": 0, // Adicionando o status "Fora de Prazo"
       }))
 
       data.forEach((item) => {
@@ -88,7 +90,7 @@ export function BarChartCardAnual() {
         const status = item.status as StatusType
 
         // Só contar "Concluída" e "Atrasada"
-        if (status === "Concluída" || status === "Atrasada") {
+        if (status === "Concluída" || status === "Atrasada" || status === "Fora de Prazo") {
           if (monthlyStatusCount[monthIndex]) {
             monthlyStatusCount[monthIndex][status]++
           }
