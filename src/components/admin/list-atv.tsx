@@ -18,6 +18,8 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import ArquivosAtv from "@/components/admin/arquivos-atv"
 import FeitosAtv from "@/components/admin/feitos-atv"
 import { useSearchParams } from 'next/navigation'
+import { toast } from "sonner";
+
 
 
 interface Atividade {
@@ -86,6 +88,11 @@ const ListAtv: React.FC = () => {
     } else {
       // Marca diretamente sem confirmação
       updateBaixado(atividadeId, checked);
+  
+      // Exibe toast apenas quando marcar como baixado
+      if (checked) {
+        toast.success(`${atividade.titulo} marcado como baixado`);
+      }
     }
   };
   
@@ -110,10 +117,15 @@ const ListAtv: React.FC = () => {
   // Função para confirmar a alteração e atualizar o estado de 'baixado'
   const handleConfirmChange = () => {
     if (selectedAtividadeId !== null) {
+      const atividade = atividades.find((a) => a.id === selectedAtividadeId);
+      if (!atividade) return;
+  
       updateBaixado(selectedAtividadeId, false);
+      toast(`${atividade.titulo} desmarcado como baixado`);
       setIsUncheckDialogOpen(false);
     }
   };
+  ;
   
   
 
@@ -411,7 +423,9 @@ const ListAtv: React.FC = () => {
   
 
   return (
+    
     <div>
+      
       <div className="flex items-center justify-between gap-4 mb-4 ">
         <div className="flex items-center gap-2 flex-1">
           <Search className="size-4 text-muted-foreground" />

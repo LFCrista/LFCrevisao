@@ -7,6 +7,7 @@ import { Separator } from "@/components/ui/separator"
 import { NotificationModal } from "@/components/admin/notification-modal"
 import { ModeToggle } from "@/components/mode-toggle";
 import { Bell } from "lucide-react"
+import { Toaster } from "@/components/ui/sonner";
 import {
   SidebarInset,
   SidebarProvider,
@@ -113,6 +114,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     <html lang="en" suppressHydrationWarning>
     <head />
     <body>
+    <Toaster />
     <ThemeProvider
             attribute="class"
             defaultTheme="system"
