@@ -20,6 +20,8 @@ const FeitosAtv: React.FC<FeitosAtvProps> = ({ atividadeId }) => {
   const [pasta, setPasta] = React.useState<string | null>(null)
   const [nomeAtividade, setNomeAtividade] = React.useState<string>("")
 const [arquivosNaoVistos, setArquivosNaoVistos] = React.useState<Set<string>>(new Set())
+const temNaoVistos = arquivosNaoVistos.size > 0
+
 
   const userId = typeof window !== "undefined" ? localStorage.getItem("user_id") : null
 
@@ -165,9 +167,19 @@ React.useEffect(() => {
 
   return (
     <Drawer>
-  <DrawerTrigger asChild>
+ <DrawerTrigger asChild>
+  <div className="relative inline-block">
     <Button variant="outline">Ver Arquivos Feitos</Button>
-  </DrawerTrigger>
+
+    {temNaoVistos && (
+      <span className="absolute -top-1 -right-1 flex size-2">
+        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-sky-400 opacity-75"></span>
+        <span className="relative inline-flex size-2 rounded-full bg-sky-500"></span>
+      </span>
+    )}
+  </div>
+</DrawerTrigger>
+
   <DrawerContent className="p-6 mb-5">
     <DrawerHeader>
       <DrawerTitle>Arquivos Feitos da Atividade</DrawerTitle>
