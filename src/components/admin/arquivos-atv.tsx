@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/drawer"
 import { supabase } from "@/lib/supabase"
 import { Button } from "@/components/ui/button"
-import { CircleX, Upload } from "lucide-react"
+import { CircleX, Upload,Download } from "lucide-react"
 import {
   AlertDialog,
   AlertDialogTrigger,
@@ -22,6 +22,8 @@ import {
   AlertDialogAction,
   AlertDialogCancel,
 } from "@/components/ui/alert-dialog"
+import JSZip from "jszip"
+import { saveAs } from "file-saver"
 
 const sanitizePathComponent = (str: string) => {
   // Verifica se a string é válida antes de manipular
@@ -62,6 +64,7 @@ const ArquivosAtv: React.FC<ArquivosAtvProps> = ({ atividadeId }) => {
   const [isUploadErrorDialogOpen, setIsUploadErrorDialogOpen] = React.useState(false)
   const [isUploadSuccessDialogOpen, setIsUploadSuccessDialogOpen] = React.useState(false)
   const [isDeleteSuccessDialogOpen, setIsDeleteSuccessDialogOpen] = React.useState(false)
+  const [nomeAtividade, setNomeAtividade] = React.useState<string>("")
 
   const fileInputRef = React.useRef<HTMLInputElement | null>(null)
 
@@ -95,6 +98,42 @@ const ArquivosAtv: React.FC<ArquivosAtvProps> = ({ atividadeId }) => {
       setArquivos(data ?? [])
     }
   }
+
+  const handleDownload = async (fileName: string) => {
+      if (!pasta) return
+      const filePath = `${pasta}/${fileName}`
+      const { data, error } = await supabase.storage
+        .from("atividades-enviadas")
+        .download(filePath)
+  
+      if (data) {
+        const url = URL.createObjectURL(data)
+        const link = document.createElement("a")
+        link.href = url
+        link.download = fileName
+        link.click()
+        URL.revokeObjectURL(url)
+      }
+    }
+  
+    const handleDownloadAll = async () => {
+      if (!pasta || arquivos.length === 0) return
+      const zip = new JSZip()
+  
+      for (const arquivo of arquivos) {
+        const filePath = `${pasta}/${arquivo.name}`
+        const { data } = await supabase.storage
+          .from("atividades-enviadas")
+          .download(filePath)
+  
+        if (data) zip.file(arquivo.name, data)
+      }
+  
+      zip.generateAsync({ type: "blob" }).then((content) => {
+        saveAs(content, `${nomeAtividade}-arquivos.zip`)
+      })
+    }
+  
 
   // Função para remover um arquivo
   const handleRemove = async (fileName: string) => {
@@ -260,15 +299,29 @@ const ArquivosAtv: React.FC<ArquivosAtvProps> = ({ atividadeId }) => {
               {arquivos.map((arquivo) => (
                 <li key={arquivo.name} className="flex justify-between items-center">
                   <span>{arquivo.name}</span>
-                  <Button
-                    variant="destructive"
-                    size="icon"
-                    onClick={() => handleRemove(arquivo.name)}
-                    className="ml-2"
-                  >
+                  <div className="">
+                    <Button
+                      variant="destructive"
+                      size="icon"
+                      onClick={() => handleRemove(arquivo.name)}
+                      className="ml-2 mr-2"
+                    >
                     <CircleX />
-                  </Button>
+                    </Button>
+
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => handleDownload(arquivo.name)}
+
+                    >
+                    <Download />
+                    </Button>
+                  </div>
+                  
                 </li>
+                
+                
               ))}
             </ul>
           ) : (
