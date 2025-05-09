@@ -163,30 +163,67 @@ const FeitosUpload: React.FC<FeitosUploadProps> = ({ atividadeId,isDisabled }) =
     fileInputRef.current?.click()
   }
 
-  const handleUpload = async (files: FileList | null) => {
-    if (!files || !pasta) return
+ const handleUpload = async (files: FileList | null) => {
+  if (!files || !pasta) return;
 
-    for (const file of Array.from(files)) {
-      const safeFileName = getSafeFileName(file.name)
-      const filePath = `${pasta}/${safeFileName}`
+  // Recupera o user_id do localStorage
+  const userId = localStorage.getItem("user_id");
+  if (!userId) {
+    console.error("user_id não encontrado no localStorage");
+    return;
+  }
 
-      const { data, error } = await supabase.storage
-        .from("atividades-recebidas")
-        .upload(filePath, file, { upsert: true })
+  // Lista de usuários que devem receber as notificações e os registros em new_arquivo
+  const userIds = [
+    "d037bb0b-d5aa-4d11-b61e-dfecc8ba5e64",
+    "d572c975-3bbc-46d2-8b03-6b5d0d258e2c",
+    "36975d29-601c-4b6f-85af-ee68fc923dc9",
+  ];
 
-      if (error) {
-        console.error("Erro ao fazer upload:", error.message)
-      } else {
-        console.log("Arquivo enviado com sucesso:", data)
+  for (const file of Array.from(files)) {
+    const safeFileName = getSafeFileName(file.name);
+    const filePath = `${pasta}/${safeFileName}`;
 
-        await createNotifications(atividadeId, "Progresso na atividade", "progresso")
+    // 1. Upload do arquivo
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from("atividades-recebidas")
+      .upload(filePath, file, { upsert: true });
 
-
-      }
+    if (uploadError) {
+      console.error("Erro ao fazer upload:", uploadError.message);
+      continue;
     }
 
-    fetchArquivosNaPasta(pasta)
+    console.log("Arquivo enviado com sucesso:", uploadData);
+
+    // 2. Para cada user, cria uma entrada em new_arquivo com a coluna "para"
+    const registros = userIds.map((destinatarioId) => ({
+      user_id: userId,
+      atividade_id: atividadeId,
+      caminho_arquivo: filePath,
+      para: destinatarioId,
+      visto: false,
+    }));
+
+    const { error: insertError } = await supabase
+      .from("new_arquivo")
+      .insert(registros);
+
+    if (insertError) {
+      console.error("Erro ao inserir em new_arquivo:", insertError.message);
+    } else {
+      console.log("Registros inseridos em new_arquivo.");
+    }
+
+    // 3. Cria notificação (como antes)
+    await createNotifications(atividadeId, "Progresso na atividade", "progresso");
   }
+
+  // 4. Atualiza a interface com os novos arquivos
+  fetchArquivosNaPasta(pasta);
+};
+
+
 
   const handleRemove = async (fileName: string) => {
     if (!pasta) return
