@@ -7,6 +7,7 @@ import { supabase } from "@/lib/supabase"
 import JSZip from "jszip" // Biblioteca para criar o arquivo .zip
 import { saveAs } from "file-saver" // Para salvar o arquivo compactado no sistema
 
+
 import { Drawer, DrawerTrigger, DrawerContent, DrawerHeader, DrawerTitle, DrawerClose } from "@/components/ui/drawer"
 
 interface FeitosAtvProps {
@@ -18,6 +19,34 @@ const FeitosAtv: React.FC<FeitosAtvProps> = ({ atividadeId }) => {
   const [loading, setLoading] = React.useState(false)
   const [pasta, setPasta] = React.useState<string | null>(null)
   const [nomeAtividade, setNomeAtividade] = React.useState<string>("")
+const [arquivosNaoVistos, setArquivosNaoVistos] = React.useState<Set<string>>(new Set())
+
+  const userId = typeof window !== "undefined" ? localStorage.getItem("user_id") : null
+
+
+React.useEffect(() => {
+  const userId = localStorage.getItem("user_id")
+  if (!userId || !pasta) return
+
+  const fetchNaoVistos = async () => {
+    const { data, error } = await supabase
+      .from("new_arquivo")
+      .select("caminho_arquivo")
+      .eq("para", userId)
+      .eq("visto", false)
+
+    if (error) {
+      console.error("Erro ao buscar arquivos não vistos:", error.message)
+      return
+    }
+
+    const set = new Set(data.map((item) => item.caminho_arquivo))
+    setArquivosNaoVistos(set)
+  }
+
+  fetchNaoVistos()
+}, [pasta])
+
 
   // Função para buscar o caminho da pasta da atividade e o nome da atividade
   const fetchCaminhoDaPasta = async (id: string) => {
@@ -54,28 +83,49 @@ const FeitosAtv: React.FC<FeitosAtvProps> = ({ atividadeId }) => {
   }
 
   // Função para baixar um arquivo específico
-  const handleDownload = async (fileName: string) => {
-    if (!pasta) return
+ const handleDownload = async (fileName: string) => {
+  if (!pasta) return
 
-    const filePath = `${pasta}/${fileName}`
-    const { data, error } = await supabase.storage
-      .from("atividades-recebidas")
-      .download(filePath)
+  const userId = localStorage.getItem("user_id")
+  const filePath = `${pasta}/${fileName}`
 
-    if (error) {
-      console.error("Erro ao baixar o arquivo:", error.message)
-      alert("Erro ao baixar o arquivo.")
-      return
-    }
+  const { data, error } = await supabase.storage
+    .from("atividades-recebidas")
+    .download(filePath)
 
-    // Criar um link de download e simular o clique
-    const url = URL.createObjectURL(data)
-    const link = document.createElement("a")
-    link.href = url
-    link.download = fileName
-    link.click()
-    URL.revokeObjectURL(url)
+  if (error) {
+    console.error("Erro ao baixar o arquivo:", error.message)
+    alert("Erro ao baixar o arquivo.")
+    return
   }
+
+  // Marcar como visto no Supabase
+  const { error: updateError } = await supabase
+    .from("new_arquivo")
+    .update({ visto: true })
+    .match({ caminho_arquivo: filePath, para: userId })
+
+  if (updateError) {
+    console.error("Erro ao marcar como visto:", updateError.message)
+  }
+
+  // ✅ Atualizar visualmente removendo do Set
+  setArquivosNaoVistos((prev) => {
+    const newSet = new Set(prev)
+    newSet.delete(filePath)
+    return newSet
+  })
+
+  // Iniciar download
+  const url = URL.createObjectURL(data)
+  const link = document.createElement("a")
+  link.href = url
+  link.download = fileName
+  link.click()
+  URL.revokeObjectURL(url)
+}
+
+
 
   // Função para baixar todos os arquivos como um arquivo .zip
   const handleDownloadAll = async () => {
@@ -115,24 +165,38 @@ const FeitosAtv: React.FC<FeitosAtvProps> = ({ atividadeId }) => {
 
   return (
     <Drawer>
-      <DrawerTrigger asChild>
-        <Button variant="outline">Ver Arquivos Feitos</Button>
-      </DrawerTrigger>
-      <DrawerContent className="p-6 mb-5">
-        <DrawerHeader>
-          <DrawerTitle>Arquivos Feitos da Atividade</DrawerTitle>
-          <DrawerClose />
-        </DrawerHeader>
+  <DrawerTrigger asChild>
+    <Button variant="outline">Ver Arquivos Feitos</Button>
+  </DrawerTrigger>
+  <DrawerContent className="p-6 mb-5">
+    <DrawerHeader>
+      <DrawerTitle>Arquivos Feitos da Atividade</DrawerTitle>
+      <DrawerClose />
+    </DrawerHeader>
 
-        {/* Exibindo os arquivos dentro do Drawer */}
-        <div className="space-y-2">
-          {loading ? (
-            <p>Carregando arquivos...</p>
-          ) : arquivos.length > 0 ? (
-            <ul className="space-y-2 p-6">
-              {arquivos.map((arquivo) => (
-                <li key={arquivo.name} className="flex justify-between items-center">
-                  <span>{arquivo.name}</span>
+    {/* Exibindo os arquivos dentro do Drawer */}
+    <div className="space-y-2">
+      {loading ? (
+        <p>Carregando arquivos...</p>
+      ) : arquivos.length > 0 ? (
+        <ul className="space-y-2 p-6">
+          {arquivos.map((arquivo) => {
+            const caminhoCompleto = `${pasta}/${arquivo.name}`
+            const naoVisto = arquivosNaoVistos.has(caminhoCompleto)
+
+            return (
+              <li key={arquivo.name} className="flex justify-between items-center">
+                <span className={naoVisto ? "text-blue-500 font-medium" : ""}>
+                  {arquivo.name}
+                </span>
+
+                <div className="relative">
+                  {naoVisto && (
+                    <span className="absolute -top-1 -right-1 flex size-2">
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-sky-400 opacity-75"></span>
+                      <span className="relative inline-flex size-2 rounded-full bg-sky-500"></span>
+                    </span>
+                  )}
                   <Button
                     variant="outline"
                     size="icon"
@@ -141,22 +205,25 @@ const FeitosAtv: React.FC<FeitosAtvProps> = ({ atividadeId }) => {
                   >
                     <Download />
                   </Button>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p>Nenhum arquivo encontrado.</p>
-          )}
-        </div>
+                </div>
+              </li>
+            )
+          })}
+        </ul>
+      ) : (
+        <p>Nenhum arquivo encontrado.</p>
+      )}
+    </div>
 
-        {/* Botão para baixar todos os arquivos */}
-        <div className="mt-6">
-          <Button variant="secondary" onClick={handleDownloadAll}>
-            Baixar Todos os Arquivos
-          </Button>
-        </div>
-      </DrawerContent>
-    </Drawer>
+    {/* Botão para baixar todos os arquivos */}
+    <div className="mt-6">
+      <Button variant="secondary" onClick={handleDownloadAll}>
+        Baixar Todos os Arquivos
+      </Button>
+    </div>
+  </DrawerContent>
+</Drawer>
+
   )
 }
 

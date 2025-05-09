@@ -8,6 +8,7 @@ import { NotificationModal } from "@/components/admin/notification-modal"
 import { ModeToggle } from "@/components/mode-toggle";
 import { Bell } from "lucide-react"
 import { Toaster } from "@/components/ui/sonner";
+import { toast } from "sonner"
 import {
   SidebarInset,
   SidebarProvider,
@@ -15,6 +16,7 @@ import {
 } from "@/components/ui/sidebar"
 import { supabase } from "@/lib/supabase"
 import { ThemeProvider } from "@/components/theme-provider"
+import { useRouter } from "next/navigation"
 
 // Fontes
 const geistSans = Geist({
@@ -28,6 +30,7 @@ const geistMono = Geist_Mono({
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const router = useRouter()
   const [notifications, setNotifications] = useState<
     { id: string; texto: string; link: string; visto?: boolean; created_at: string }[]
   >([])
@@ -53,6 +56,46 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
     fetchNotifications()
   }, [])
+
+  useEffect(() => {
+    const userId = localStorage.getItem("user_id")
+    if (!userId) return
+
+    const channel = supabase
+      .channel("new-arquivo-updates")
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "new_arquivo",
+          filter: `para=eq.${userId}`,
+        },
+        async (payload) => {
+          const { user_id, atividade_id, id } = payload.new
+
+          const [{ data: user }, { data: atividade }] = await Promise.all([
+            supabase.from("users").select("name").eq("id", user_id).single(),
+            supabase.from("atividades").select("titulo").eq("id", atividade_id).single(),
+          ])
+
+          if (user?.name && atividade?.titulo) {
+            toast(`${atividade.titulo} recebeu um novo arquivo de ${user.name}`, {
+              action: {
+                label: "Ver",
+                onClick: () => router.push(`/admin/atividades?atividade=${atividade_id}`),
+              },
+            })
+          }
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [router]) 
+
 
   const openModal = () => setIsModalOpen(true)
   const closeModal = () => setIsModalOpen(false)
@@ -152,7 +195,6 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                 
               </div>
           </header>
-         
           {children}
           
         </SidebarInset>
