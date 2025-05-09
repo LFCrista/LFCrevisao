@@ -23,6 +23,7 @@ import { toast } from "sonner";
 
 
 interface Atividade {
+  deveDestacar: boolean
   descricao: string
   id: string
   titulo: string
@@ -59,6 +60,8 @@ const ListAtv: React.FC = () => {
   const searchParams = useSearchParams()
   const [isUncheckDialogOpen, setIsUncheckDialogOpen] = React.useState(false); // para desmarcar checkbox
   const [isSaveDialogOpen, setIsSaveDialogOpen] = React.useState(false); // para salvar alterações
+  const [atividadesComArquivoNovo, setAtividadesComArquivoNovo] = React.useState<string[]>([]);
+  const [novosArquivosMap, setNovosArquivosMap] = React.useState<Set<string>>(new Set());
 
   
 
@@ -129,125 +132,134 @@ const ListAtv: React.FC = () => {
   
   
 
-  const fetchAtividades = async (page: number) => {
-    const { data: atividadesData, error } = await supabase
-      .from("atividades")
-      .select("*")
+const fetchAtividades = async (page: number) => {
+  const userId = localStorage.getItem("user_id");
+  if (!userId) return;
 
-    if (error) {
-      console.error("Erro ao buscar atividades:", error)
-      return
-    }
+  const { data: atividadesData, error } = await supabase
+    .from("atividades")
+    .select("*");
 
-    let filtradas = atividadesData.filter((a) =>
-      a.titulo.toLowerCase().includes(searchTerm.toLowerCase())
-    )
-
-    if (selectedUser) {
-      filtradas = filtradas.filter((a) => a.user_id === String(selectedUser.id))
-    }
-
-    const atividadesComStatusAtualizado = await Promise.all(
-      filtradas.map(async (atividade) => {
-        if (!atividade.end_date) return atividade;
-    
-        const agora = new Date();
-        const dataFim = new Date(atividade.end_date);
-    
-        // Não atualiza se já estiver como "Concluída" ou "Fora de Prazo"
-        if (atividade.status === "Concluída" || atividade.status === "Fora de Prazo") {
-          return atividade;
-        }
-    
-        let novoStatus = atividade.status;
-    
-        if (dataFim < agora) {
-          novoStatus = "Atrasada";
-        } else if (atividade.feito_url) {
-          novoStatus = "Em Progresso";
-        } else {
-          novoStatus = "Pendente";
-        }
-    
-        // Atualiza apenas se o status mudou
-        if (novoStatus !== atividade.status) {
-          const { error: updateError } = await supabase
-            .from("atividades")
-            .update({ status: novoStatus })
-            .eq("id", atividade.id);
-    
-          if (!updateError) {
-            atividade.status = novoStatus;
-          } else {
-            console.error(`Erro ao atualizar status da atividade ${atividade.id}:`, updateError.message);
-          }
-        }
-    
-        return atividade;
-      })
-    );
-    
-
-    const handleTitleClick = (atividade: Atividade) => {
-      setSelectedAtividade(atividade)  // Atualiza a atividade selecionada
-    }
-
-    
-    
-    
-    
-
-    const atividadesOrdenadas = [...filtradas].sort((a, b) => {
-      // 1. Atividades não baixadas vêm primeiro
-      if (a.baixado !== b.baixado) {
-        return a.baixado ? 1 : -1
-      }
-    
-      // 2. Prioridade de status: Pendente/Em Progresso < Atrasada < Concluída
-      const prioridadeStatus = (status: string) => {
-        switch (status) {
-          case "Pendente":
-          case "Em Progresso":
-            return 0
-          case "Atrasada":
-            return 1
-          case "Concluída":
-            return 2
-          default:
-            return 3
-        }
-      }
-    
-      const prioridadeA = prioridadeStatus(a.status)
-      const prioridadeB = prioridadeStatus(b.status)
-    
-      if (prioridadeA !== prioridadeB) {
-        return prioridadeA - prioridadeB
-      }
-    
-      // 3. Para Concluídas, ordenar por entrega mais recente
-      if (a.status === "Concluída" && b.status === "Concluída") {
-        const entregaA = a.entrega_date ? new Date(a.entrega_date).getTime() : 0
-        const entregaB = b.entrega_date ? new Date(b.entrega_date).getTime() : 0
-        return entregaB - entregaA
-      }
-    
-      // 4. Ordenar por data de fim mais próxima (menor data primeiro)
-      const endDateA = a.end_date ? new Date(a.end_date).getTime() : Infinity
-      const endDateB = b.end_date ? new Date(b.end_date).getTime() : Infinity
-    
-      return endDateA - endDateB
-    })
-    
-    
-    
-
-    const start = (page - 1) * ITEMS_PER_PAGE
-    const end = start + ITEMS_PER_PAGE
-    setAtividades(atividadesOrdenadas.slice(start, end))
-    setTotalPages(Math.ceil(atividadesOrdenadas.length / ITEMS_PER_PAGE))
-    setLoading(false)
+  if (error) {
+    console.error("Erro ao buscar atividades:", error);
+    return;
   }
+
+  // 🔍 BUSCAR arquivos não vistos por atividade e pelo admin logado
+  const { data: arquivosNaoVistos, error: erroArquivos } = await supabase
+    .from("new_arquivo")
+    .select("atividade_id, visto")
+    .eq("para", userId)  // Filtra pelos arquivos para o admin logado
+    .eq("visto", false); // Filtra os arquivos que não foram vistos
+
+  if (erroArquivos) {
+    console.error("Erro ao buscar arquivos não vistos:", erroArquivos);
+  }
+
+  // Obtem IDs de atividades com arquivos não vistos
+  const atividadesComArquivosNaoVistos = new Set(
+    (arquivosNaoVistos || []).map((a) => a.atividade_id)
+  );
+
+  // 🔄 Enriquecer cada atividade com info se deve destacar
+  let filtradas = atividadesData
+    .filter((a) => a.titulo.toLowerCase().includes(searchTerm.toLowerCase()))
+    .map((a) => {
+      const todosArquivosVistos = (arquivosNaoVistos ?? []).filter(
+  (arquivo) => arquivo.atividade_id === a.id
+).length === 0;
+// Verifica se não existem arquivos não vistos
+
+      return {
+        ...a,
+        deveDestacar: !todosArquivosVistos, // Vai destacar se existirem arquivos não vistos
+      };
+    });
+
+  if (selectedUser) {
+    filtradas = filtradas.filter((a) => a.user_id === String(selectedUser.id));
+  }
+
+  // Atualizando o status das atividades
+  const atividadesComStatusAtualizado = await Promise.all(
+    filtradas.map(async (atividade) => {
+      if (!atividade.end_date) return atividade;
+
+      const agora = new Date();
+      const dataFim = new Date(atividade.end_date);
+
+      if (atividade.status === "Concluída" || atividade.status === "Fora de Prazo") {
+        return atividade;
+      }
+
+      let novoStatus = atividade.status;
+
+      if (dataFim < agora) {
+        novoStatus = "Atrasada";
+      } else if (atividade.feito_url) {
+        novoStatus = "Em Progresso";
+      } else {
+        novoStatus = "Pendente";
+      }
+
+      if (novoStatus !== atividade.status) {
+        const { error: updateError } = await supabase
+          .from("atividades")
+          .update({ status: novoStatus })
+          .eq("id", atividade.id);
+
+        if (!updateError) {
+          atividade.status = novoStatus;
+        } else {
+          console.error(`Erro ao atualizar status da atividade ${atividade.id}:`, updateError.message);
+        }
+      }
+
+      return atividade;
+    })
+  );
+
+  const atividadesOrdenadas = [...atividadesComStatusAtualizado].sort((a, b) => {
+    if (a.baixado !== b.baixado) return a.baixado ? 1 : -1;
+
+    const prioridadeStatus = (status: string) => {
+      switch (status) {
+        case "Pendente":
+        case "Em Progresso":
+          return 0;
+        case "Atrasada":
+          return 1;
+        case "Concluída":
+          return 2;
+        default:
+          return 3;
+      }
+    };
+
+    const prioridadeA = prioridadeStatus(a.status);
+    const prioridadeB = prioridadeStatus(b.status);
+    if (prioridadeA !== prioridadeB) return prioridadeA - prioridadeB;
+
+    if (a.status === "Concluída" && b.status === "Concluída") {
+      const entregaA = a.entrega_date ? new Date(a.entrega_date).getTime() : 0;
+      const entregaB = b.entrega_date ? new Date(b.entrega_date).getTime() : 0;
+      return entregaB - entregaA;
+    }
+
+    const endDateA = a.end_date ? new Date(a.end_date).getTime() : Infinity;
+    const endDateB = b.end_date ? new Date(b.end_date).getTime() : Infinity;
+
+    return endDateA - endDateB;
+  });
+
+  const start = (page - 1) * ITEMS_PER_PAGE;
+  const end = start + ITEMS_PER_PAGE;
+  setAtividades(atividadesOrdenadas.slice(start, end));
+  setTotalPages(Math.ceil(atividadesOrdenadas.length / ITEMS_PER_PAGE));
+  setLoading(false);
+};
+
+
 
   const fetchUsuarios = async () => {
     const { data: usuariosData, error } = await supabase
@@ -460,37 +472,50 @@ const ListAtv: React.FC = () => {
         </TableHeader>
         <TableBody>
           {atividades.map((atividade) => {
-            const usuarioNome = usuarios.get(atividade.user_id) || "Desconhecido";
-            const nomeSplit = usuarioNome.split(" "); // Divide o nome completo em um array de palavras
-            const nomeExibido = nomeSplit[0]; // Mostra apenas o primeiro nome
-            
-            return (
-              <TableRow key={atividade.id}>
-                <TableCell
-                  className="cursor-pointer hover:underline"
-                  onClick={() => handleTitleClick(atividade)}
-                >
-                  {atividade.titulo}
-                </TableCell>
-                <TableCell>{formatDate(atividade.start_date)}</TableCell>
-                <TableCell>{formatDate(atividade.end_date)}</TableCell>
-                <TableCell>{formatDate(atividade.entrega_date)}</TableCell>
-                <TableCell>
-                  <Badge variant={getBadgeVariant(atividade.status)}>
-                    {atividade.status}
-                  </Badge>
-                </TableCell>
-                <TableCell>{nomeExibido}</TableCell>
-                <TableCell>
-          <input
-            type="checkbox"
-            checked={atividade.baixado}
-            onChange={(e) => handleCheckboxChange(atividade.id, e.target.checked)}
-          />
-        </TableCell>
-              </TableRow>
-            )
-          })}
+  const usuarioNome = usuarios.get(atividade.user_id) || "Desconhecido";
+  const nomeSplit = usuarioNome.split(" ");
+  const nomeExibido = nomeSplit[0];
+
+  const deveDestacar = atividade.deveDestacar;
+
+  return (
+    <TableRow
+      key={atividade.id}
+      className={deveDestacar ? "text-blue-400" : ""}
+    >
+      <TableCell
+        className="cursor-pointer hover:underline flex items-center gap-2"
+        onClick={() => handleTitleClick(atividade)}
+      >
+        {deveDestacar && (
+          <span className="relative flex size-3">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-sky-400 opacity-75"></span>
+            <span className="relative inline-flex size-3 rounded-full bg-sky-500"></span>
+          </span>
+        )}
+        {atividade.titulo}
+      </TableCell>
+      <TableCell>{formatDate(atividade.start_date)}</TableCell>
+      <TableCell>{formatDate(atividade.end_date)}</TableCell>
+      <TableCell>{formatDate(atividade.entrega_date)}</TableCell>
+      <TableCell>
+        <Badge variant={getBadgeVariant(atividade.status)}>
+          {atividade.status}
+        </Badge>
+      </TableCell>
+      <TableCell>{nomeExibido}</TableCell>
+      <TableCell>
+        <input
+          type="checkbox"
+          checked={atividade.baixado}
+          onChange={(e) => handleCheckboxChange(atividade.id, e.target.checked)}
+        />
+      </TableCell>
+    </TableRow>
+  );
+})}
+
+
         </TableBody>
       </Table>
 
