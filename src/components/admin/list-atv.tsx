@@ -384,21 +384,35 @@ const fetchAtividades = async (page: number) => {
   const handleCloseAlertDialog = () => setIsAlertDialogOpen(false); // Fecha o AlertDialog
 
   const handleDeleteAtividade = async () => {
-    if (!selectedAtividade || !selectedAtividade.id) return;
-  
-    const { error } = await supabase
-      .from("atividades")
-      .delete()
-      .eq("id", selectedAtividade.id);
-  
-    if (error) {
-      console.error("Erro ao excluir atividade:", error.message);
-      alert("Erro ao excluir a atividade.");
-    } else {
-      setIsSheetOpen(false);
-      window.location.reload();
-    }
-  };
+  if (!selectedAtividade || !selectedAtividade.id) return;
+
+  // Deleta arquivos relacionados
+  const { error: arquivosError } = await supabase
+    .from("new_arquivo")
+    .delete()
+    .eq("atividade_id", selectedAtividade.id);
+
+  if (arquivosError) {
+    console.error("Erro ao excluir arquivos:", arquivosError.message);
+    alert("Erro ao excluir arquivos da atividade.");
+    return;
+  }
+
+  // Deleta a atividade
+  const { error: atividadeError } = await supabase
+    .from("atividades")
+    .delete()
+    .eq("id", selectedAtividade.id);
+
+  if (atividadeError) {
+    console.error("Erro ao excluir atividade:", atividadeError.message);
+    alert("Erro ao excluir a atividade.");
+  } else {
+    setIsSheetOpen(false);
+    window.location.reload();
+  }
+};
+
 
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = React.useState(false);
 
