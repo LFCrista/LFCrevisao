@@ -155,6 +155,28 @@ React.useEffect(() => {
     zip.generateAsync({ type: "blob" }).then((content) => {
       saveAs(content, `${nomeAtividade}-feito.zip`) // Nome do arquivo .zip
     })
+
+    // ⚠️ Após o download, marcar todos como vistos
+    const caminhos = arquivos.map((arquivo) => `${pasta}/${arquivo.name}`)
+
+    const { error: updateError } = await supabase
+      .from("new_arquivo")
+      .update({ visto: true })
+      .in("caminho_arquivo", caminhos)
+      .eq("para", userId)
+
+    if (updateError) {
+      console.error("Erro ao marcar como vistos:", updateError.message)
+    }
+
+    // ✅ Atualizar visualmente o Set
+    setArquivosNaoVistos((prev) => {
+      const novoSet = new Set(prev)
+      caminhos.forEach((caminho) => novoSet.delete(caminho))
+      return novoSet
+    })
+
+ 
   }
 
   React.useEffect(() => {
