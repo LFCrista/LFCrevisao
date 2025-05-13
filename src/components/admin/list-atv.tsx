@@ -351,33 +351,57 @@ const fetchAtividades = async (page: number) => {
   }
   
 
-  const handleSaveChanges = async () => {
-    // Verifica se a atividade foi selecionada corretamente e se a ID existe
-    if (!selectedAtividade || !selectedAtividade.id) {
-      console.error("Atividade não selecionada ou ID ausente.");
-      alert("Atividade não selecionada ou ID ausente.");
-      return;
-    }
-  
-    const { id, ...dadosParaAtualizar } = selectedAtividade;
-  
-    setIsSaving(true); // Ativa o estado de salvamento
-  
-    const { error } = await supabase
-      .from('atividades')
-      .update(dadosParaAtualizar)
-      .eq('id', id);
-  
-    setIsSaving(false); // Desativa o estado de salvamento
-  
-    if (error) {
-      console.error('Erro ao atualizar atividade:', error);
-      alert('Erro ao salvar alterações.');
-    } else {
-      setIsSheetOpen(false); // Fecha o modal após salvar
-      window.location.reload(); // Recarrega a página para refletir as alterações
-    }
+const handleSaveChanges = async () => {
+  if (!selectedAtividade || !selectedAtividade.id) {
+    console.error("Atividade não selecionada ou ID ausente.");
+    alert("Atividade não selecionada ou ID ausente.");
+    return;
+  }
+
+  const { id } = selectedAtividade;
+
+  const dadosParaAtualizar = {
+    titulo: selectedAtividade.titulo,
+    descricao: selectedAtividade.descricao,
+    // outros campos válidos da tabela 'atividades'
   };
+
+  const visto = true;
+
+  setIsSaving(true);
+
+  const { error: updateAtividadeError } = await supabase
+    .from('atividades')
+    .update(dadosParaAtualizar)
+    .eq('id', id);
+
+  if (!updateAtividadeError) {
+    const { error: updateArquivoError } = await supabase
+      .from('new_arquivo')
+      .update({ visto })
+      .eq('atividade_id', id);
+
+    // ✅ Atualiza o campo "baixado" no banco com o valor atual do checkbox
+    await updateBaixado(id, selectedAtividade.baixado);
+
+    setIsSaving(false);
+
+    if (updateArquivoError) {
+      console.error('Erro ao atualizar a tabela new_arquivo:', updateArquivoError);
+      alert('Erro ao salvar alterações na tabela new_arquivo.');
+    } else {
+      setIsSheetOpen(false);
+      window.location.reload();
+    }
+  } else {
+    setIsSaving(false);
+    console.error('Erro ao atualizar a tabela atividades:', updateAtividadeError);
+    alert('Erro ao salvar alterações na tabela atividades.');
+  }
+};
+
+
+
   
 
   const handleOpenAlertDialog = () => setIsAlertDialogOpen(true); // Abre o AlertDialog
