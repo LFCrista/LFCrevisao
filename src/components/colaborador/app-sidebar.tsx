@@ -3,18 +3,9 @@
 import * as React from "react"
 import { useState, useEffect } from "react"
 import {
-  AudioWaveform,
-  BookOpen,
-  Bot,
-  Command,
-  Frame,
   GalleryVerticalEnd,
-  Map,
-  PieChart,
-  Settings2,
-  SquareTerminal,
   LayoutPanelTop,
-  FileText,
+  PackageOpen,
   Users
 } from "lucide-react"
 
@@ -51,6 +42,19 @@ const data = {
           url: "/feed",
         },
         
+      ],
+    },
+    {
+      title: "Sobre",
+      url: "#",
+      icon: PackageOpen,
+      isActive: true,
+      items: [
+        {
+          title: "Novidades",
+          url: "https://github.com/jpkoguishi/LFCrevisao/releases",
+          newTab: true,
+        },
       ],
     },
     // {
