@@ -8,7 +8,7 @@ export async function POST(req: Request) {
   const { titulo_atividade, obs_envio, atividadeId, nome_usuario } = await req.json(); // Incluindo o nome do usuário
 
   // E-mail fixo (padrão)
-  const to = "giovannafelipe.editora@gmail.com"; // Substitua pelo e-mail fixo desejado
+  const to = "giovanabazoni.editorapenkal@gmail.com"; // Substitua pelo e-mail fixo desejado
 
   try {
     const result = await resend.emails.send({
