@@ -348,7 +348,7 @@ const fetchAtividades = async (page: number) => {
   const handleTitleClick = (atividade: Atividade) => {
     setSelectedAtividade(atividade)
     setIsSheetOpen(true)
-    router.push(`/admin/atividades?atividade=${atividade.id}`)
+    router.push(`/admin/atividades/arquivados?atividade=${atividade.id}`)
   }
   
 
