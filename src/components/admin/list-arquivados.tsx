@@ -614,7 +614,7 @@ const handleSaveChanges = async () => {
       {/* Menu lateral (Sheet) para editar a atividade */}
       <Sheet open={isSheetOpen} onOpenChange={(open) => {
   setIsSheetOpen(open)
-  if (!open) router.replace("/admin/atividades")
+  if (!open) router.replace("/admin/atividades/arquivados")
 }}>
 
         <SheetContent side="right" className="overflow-y-auto">
