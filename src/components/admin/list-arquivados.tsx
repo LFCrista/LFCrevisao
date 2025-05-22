@@ -42,7 +42,7 @@ interface User {
   name: string
 }
 
-const ListAtv: React.FC = () => {
+const ListArquivados: React.FC = () => {
   const router = useRouter()
   const [atividades, setAtividades] = React.useState<Atividade[]>([])
   const [usuarios, setUsuarios] = React.useState<Map<string, string>>(new Map())
@@ -163,7 +163,7 @@ const fetchAtividades = async (page: number) => {
 
   // 🔄 Enriquecer cada atividade com info se deve destacar
   let filtradas = atividadesData
-    .filter((a) => !a.baixado) // 👈 ESSA LINHA REMOVE OS BAIXADOS
+    .filter((a) => a.baixado) // 👈 ESSA LINHA MOSTRA APENAS OS BAIXADOS
     .filter((a) => a.titulo.toLowerCase().includes(searchTerm.toLowerCase()))
     .map((a) => {
       const todosArquivosVistos = (arquivosNaoVistos ?? []).filter(
@@ -837,4 +837,4 @@ const handleSaveChanges = async () => {
   )
 }
 
-export default ListAtv
+export default ListArquivados

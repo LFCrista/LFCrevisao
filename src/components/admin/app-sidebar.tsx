@@ -60,6 +60,10 @@ const data = {
           title: "Criar atividade",
           url: "/admin/atividades/criar",
         },
+        {
+          title: "Arquivados",
+          url: "/admin/atividades/arquivados",
+        },
       ],
     },
     {
