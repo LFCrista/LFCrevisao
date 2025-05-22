@@ -41,6 +41,10 @@ const data = {
           title: "Feed",
           url: "/feed",
         },
+        {
+          title: "Finalizadas",
+          url: "/feed/finalizadas",
+        },
         
       ],
     },

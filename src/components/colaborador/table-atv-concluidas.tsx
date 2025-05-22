@@ -108,7 +108,7 @@ const createNotifications = async (
 
 
 
-const ListAtv: React.FC = () => {
+const ListAtvConcluidas: React.FC = () => {
   const router = useRouter()
   const [atividades, setAtividades] = React.useState<Atividade[]>([])
   const [usuarios, setUsuarios] = React.useState<Map<string, string>>(new Map())
@@ -234,7 +234,8 @@ const ListAtv: React.FC = () => {
   .filter((a) =>
     a.titulo.toLowerCase().includes(searchTerm.toLowerCase())
   )
-  .filter((a) => a.status !== "Concluída" && a.status !== "Fora de Prazo")
+  .filter((a) => a.status === "Concluída" || a.status === "Fora de Prazo");
+
 
   
     // Filtra pelas atividades do usuário logado
@@ -376,7 +377,7 @@ const ListAtv: React.FC = () => {
     } else {
       setSelectedAtividade(atividade);
       setIsSheetOpen(true);
-      router.push(`/feed?atividade=${atividade.id}`);
+      router.push(`/feed/finalizadas?atividade=${atividade.id}`);
     }
   };
   
@@ -607,7 +608,7 @@ if (estaAtrasada) {
       onClick={() => {
         if (pendingSheetAtividade) {
           setSelectedAtividade(pendingSheetAtividade);
-          router.push(`/feed?atividade=${pendingSheetAtividade.id}`);
+          router.push(`/feed/finalizadas?atividade=${pendingSheetAtividade.id}`);
         }
         setIsSheetOpen(true);
         setShowAtrasadaDialog(false);
@@ -624,7 +625,7 @@ if (estaAtrasada) {
       <Sheet
   open={isSheetOpen}
   onOpenChange={async (open) => {
-    if (!open) router.replace("/feed");
+    if (!open) router.replace("/feed/finalizadas");
 
     if (!open && selectedAtividade) {
       const updates: any = {};
@@ -783,4 +784,4 @@ if (estaAtrasada) {
   )
 }
 
-export default ListAtv
+export default ListAtvConcluidas
