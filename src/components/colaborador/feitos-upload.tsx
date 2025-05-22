@@ -76,7 +76,7 @@ const createNotifications = async (
 
     const userIds = [
       "d037bb0b-d5aa-4d11-b61e-dfecc8ba5e64",
-      "d572c975-3bbc-46d2-8b03-6b5d0d258e2c",
+      "18b5c1ac-ff50-4ad4-a734-559bc154db5f",
       "36975d29-601c-4b6f-85af-ee68fc923dc9",
     ];
 
@@ -176,8 +176,8 @@ const FeitosUpload: React.FC<FeitosUploadProps> = ({ atividadeId,isDisabled }) =
   // Lista de usuários que devem receber as notificações e os registros em new_arquivo
   const userIds = [
     "d037bb0b-d5aa-4d11-b61e-dfecc8ba5e64",
-    "d572c975-3bbc-46d2-8b03-6b5d0d258e2c",
     "36975d29-601c-4b6f-85af-ee68fc923dc9",
+    "18b5c1ac-ff50-4ad4-a734-559bc154db5f",
   ];
 
   for (const file of Array.from(files)) {
