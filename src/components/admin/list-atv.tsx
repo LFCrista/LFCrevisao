@@ -359,12 +359,15 @@ const handleSaveChanges = async () => {
     return;
   }
 
-  const { id } = selectedAtividade;
+  const { id, titulo, descricao, start_date, end_date, entrega_date, baixado } = selectedAtividade;
 
   const dadosParaAtualizar = {
-    titulo: selectedAtividade.titulo,
-    descricao: selectedAtividade.descricao,
-    // outros campos válidos da tabela 'atividades'
+    titulo,
+    descricao,
+    start_date,
+    end_date,
+    entrega_date,
+    baixado,
   };
 
   const visto = true;
@@ -382,9 +385,6 @@ const handleSaveChanges = async () => {
       .update({ visto })
       .eq('atividade_id', id);
 
-    // ✅ Atualiza o campo "baixado" no banco com o valor atual do checkbox
-    await updateBaixado(id, selectedAtividade.baixado);
-
     setIsSaving(false);
 
     if (updateArquivoError) {
@@ -400,6 +400,7 @@ const handleSaveChanges = async () => {
     alert('Erro ao salvar alterações na tabela atividades.');
   }
 };
+
 
 
 
